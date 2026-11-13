@@ -13,7 +13,7 @@ PAGES.report = () => boot("report.html", async (root) => {
     <div id="doc" class="rp-doc"></div>`;
   if (!/^[0-9a-f-]{36}$/i.test(id)) { $("#rpst").textContent = "رابط غير صحيح."; return; }
   let p;
-  try { p = await rpc(kind === "student" ? "mr_student_profile" : "mr_staff_profile", { p_id: id }); }
+  try { p = await rpc(kind === "student" ? "mr_student_profile" : "mr_staff_profile", { p_id: id }); if (kind === "staff") await enrichStaff(p); }
   catch (e) { $("#rpst").textContent = mapErr(e); $("#rpst").classList.add("bad"); return; }
   const m = model(p), P = p.person, title = "الملف الشامل " + (kind === "student" ? "للمتعلم" : "للمعلم");
   document.title = title + " – " + P.name;

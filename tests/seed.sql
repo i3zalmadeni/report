@@ -63,8 +63,24 @@ insert into public.pc_communities (id, name, status) values ('70000000-0000-0000
 insert into public.pc_community_members (community_id, staff_id, role, status) values ('70000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000003', 'leader', 'active');
 insert into public.se_team_members (staff_id, is_active) values ('30000000-0000-0000-0000-000000000003', true);
 insert into public.sp_records (col, data) values
-  ('executions', '{"type":"edit","kind":"coordinator","name":"مشروع نافس للرياضيات","by":"مدير النواة الرقمية","fields":{"owner_staff_id":"30000000-0000-0000-0000-000000000003"}}'),
+  ('executions', '{"type":"edit","kind":"coordinator","progId":"14","name":"مشروع نافس للرياضيات","by":"مدير النواة الرقمية","fields":{"owner_staff_id":"30000000-0000-0000-0000-000000000003"}}'),
   ('executions', '{"type":"owner-link","kind":"coordinator","name":"إبراهيم المعلم","from":"إبراهيم","by":"مدير النواة الرقمية","staff_id":"30000000-0000-0000-0000-000000000003"}'),
   ('executions', '{"type":"edit","kind":"coordinator","name":"برنامج لا يخصه","fields":{"owner_staff_id":"30000000-0000-0000-0000-000000000002"}}');
 insert into public.facilities (id, name, status, primary_staff_id) values ('71000000-0000-0000-0000-000000000001', 'معمل الحاسب', 'active', '30000000-0000-0000-0000-000000000003');
 insert into public.fb_bookings (facility_id, booked_by, booking_date, purpose, status) values ('71000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000003', '2026-11-10', 'حصة تطبيقية', 'approved');
+
+-- التقويم الذاتي: دورة ومجال ومعيار ومؤشران، وإسناد مؤشر مباشر وإسناد مجال كامل للمعلم
+insert into public.se_cycles (id, name, status) values ('80000000-0000-0000-0000-000000000001', 'الدورة الثانية', 'active');
+insert into public.se_domains (id, code, name_ar) values ('81000000-0000-0000-0000-000000000001', '1', 'الإدارة المدرسية'), ('81000000-0000-0000-0000-000000000002', '2', 'التعليم والتعلم');
+insert into public.se_standards (id, domain_id, code, name_ar) values ('82000000-0000-0000-0000-000000000001', '81000000-0000-0000-0000-000000000001', '1.1', 'القيادة'), ('82000000-0000-0000-0000-000000000002', '81000000-0000-0000-0000-000000000002', '2.1', 'التخطيط للتعلم');
+insert into public.se_indicators (id, standard_id, code, official_text) values
+  ('83000000-0000-0000-0000-000000000001', '82000000-0000-0000-0000-000000000001', '1.1.1', 'تضع المدرسة خطة تشغيلية مبنية على نتائج التقويم'),
+  ('83000000-0000-0000-0000-000000000002', '82000000-0000-0000-0000-000000000002', '2.1.1', 'يخطط المعلمون للتعلم وفق احتياجات المتعلمين'),
+  ('83000000-0000-0000-0000-000000000003', '82000000-0000-0000-0000-000000000002', '2.1.2', 'يوظف المعلمون التقويم البنائي في التدريس');
+insert into public.se_levels (id, code, label_ar) values ('84000000-0000-0000-0000-000000000001', 'progress', 'التقدم');
+insert into public.se_indicator_assignments (cycle_id, indicator_id, staff_id, role_kind, due_date) values ('80000000-0000-0000-0000-000000000001', '83000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000003', 'responsible', '2026-12-15');
+insert into public.se_domain_assignments (cycle_id, domain_id, staff_id, role_kind) values ('80000000-0000-0000-0000-000000000001', '81000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000003', 'evaluator');
+insert into public.se_evaluations (cycle_id, indicator_id, level_id, status, achievement_pct) values ('80000000-0000-0000-0000-000000000001', '83000000-0000-0000-0000-000000000002', '84000000-0000-0000-0000-000000000001', 'approved', 80);
+insert into public.se_evidence (cycle_id, indicator_id, title, status) values ('80000000-0000-0000-0000-000000000001', '83000000-0000-0000-0000-000000000002', 'خطط دروس', 'approved');
+-- الخطط الذكية: توثيق تنفيذ سجّله المعلم
+insert into public.sp_records (col, data) values ('executions', '{"programId":2,"programCode":"PL-002","no":1,"date":"2026-11-08","executor":"إبراهيم المعلم","executor_staff_id":"30000000-0000-0000-0000-000000000003","location":"قاعة الفعاليات"}');

@@ -8,4 +8,4 @@ $P -d postgres -c "drop database if exists mirat_test" -c "create database mirat
 $P -d mirat_test -f tests/core_stub.sql >/dev/null
 for f in supabase/migrations/*.sql; do $P -d mirat_test -f "$f" >/dev/null; $P -d mirat_test -f "$f" >/dev/null; done  # مرتين: قابلية إعادة التنفيذ
 $P -d mirat_test -f tests/seed.sql >/dev/null
-$P -d mirat_test -t -f tests/0401_test.sql
+for t in tests/04*_test.sql; do $P -d mirat_test -t -f "$t"; done

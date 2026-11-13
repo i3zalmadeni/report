@@ -77,6 +77,12 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
   ok((await p.textContent("#s-plans")).includes("مشروع نافس للرياضيات") && !(await p.textContent("#s-plans")).includes("لا يخصه"), "الخطط الذكية مربوطة بمعرّف المعلم فقط");
   ok((await p.textContent("#s-contrib")).includes("تعزيزات منحها للطلاب") && !(await p.textContent("#s-contrib")).includes("أحمد"), "الإسهامات مجمّعة دون أسماء الطلاب");
   ok((await p.textContent(".mr-pro")).includes("معلم رياضيات"), "الملف المهني من مجتمع لبيد المهني");
+  const spRows = await p.$$eval("#s-sp_programs tbody tr", (l) => l.map((r) => r.textContent));
+  ok(spRows.length === 2 && spRows.some((t) => t.includes("PL-002") && t.includes("{تجريبي}") && t.includes("1")) && spRows.some((t) => t.includes("PL-014")) && !spRows.some((t) => t.includes("PL-020")),
+    "البرامج المسندة: بالاسم الموحّد وبتعديل المنسق، دون برامج غيره: " + spRows.join(" | "));
+  ok((await p.$$("#s-sp_exec tbody tr")).length === 1, "توثيقات التنفيذ التي سجّلها المعلم");
+  ok((await p.$$("#s-se_assign tbody tr")).length === 3 && (await p.textContent("#s-se_assign")).includes("التقدم") && (await p.textContent("#s-se_assign")).includes("ضمن مجال"), "المؤشرات المسندة مفصّلة: المباشرة وعبر المجال مع حالة التقييم");
+  ok((await p.$$eval("#tlist li b", (l) => l.map((x) => x.textContent))).includes("توثيق تنفيذ برنامج"), "توثيق التنفيذ في السجل الزمني");
   await shot(p, "03-staff-profile");
   ok(p.errs.length === 0, "لا أخطاء JavaScript (المدير): " + p.errs.join(" | "));
 

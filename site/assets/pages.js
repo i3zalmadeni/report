@@ -69,6 +69,7 @@ PAGES.profile = () => boot("profile.html", async (main) => {
   if (!/^[0-9a-f-]{36}$/i.test(id)) { main.innerHTML = `<div class="card"><p class="err">رابط غير صحيح.</p><a class="btn sec" href="search.html">العودة إلى البحث</a></div>`; return; }
   main.innerHTML = loading("جارٍ جمع السجلات من الأنظمة…");
   const p = await rpc(kind === "student" ? "mr_student_profile" : "mr_staff_profile", { p_id: id });
+  if (kind === "staff") await enrichStaff(p);
   const m = model(p), P = p.person;
   document.title = P.name + " – الملف الشامل – مرآة";
   $(".pagebar h1").textContent = "ملف " + kindLabel(kind) + " الشامل";

@@ -23,6 +23,8 @@ http.createServer((req, res) => {
       } catch (e) { const m = (e.stderr || "").match(/ERROR:\s+(.*)/); res.writeHead(400, { "content-type": "application/json" }); res.end(JSON.stringify({ message: m ? m[1].trim() : "error" })); }
     }); return;
   }
+  // نسخة اختبار من صفحة الخطط الذكية (على الموقع الحقيقي تُقرأ من /smart-plans/ على الأصل نفسه)
+  if (req.url.split("?")[0] === "/smart-plans/") { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); return fs.createReadStream(path.join(__dirname, "fixtures/smart-plans/index.html")).pipe(res); }
   const f = path.join(ROOT, decodeURIComponent(req.url.split("?")[0]).replace(/\/$/, "/index.html"));
   if (!f.startsWith(ROOT) || !fs.existsSync(f)) { res.writeHead(404); return res.end("not found"); }
   res.writeHead(200, { "content-type": MIME[path.extname(f)] || "application/octet-stream" }); fs.createReadStream(f).pipe(res);

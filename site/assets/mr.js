@@ -34,7 +34,7 @@ const LBL = {
   submitted: "مقدم", under_review: "قيد المراجعة", current: "حالي", ended: "منتهٍ", verified: "موثق", unverified: "غير موثق", leader: "قائد", member: "عضو",
   attended: "حضر", absent: "لم يحضر", invited: "مدعو", accepted: "قبل الدعوة", declined: "اعتذر", open: "مفتوحة", closed: "مغلقة", completed: "مكتمل", done: "منجز",
   in_progress: "قيد التنفيذ", cancelled: "ملغى", planned: "مخطط", draft: "مسودة", queued: "بانتظار الإرسال", sending: "قيد الإرسال", sent: "مرسل", delivered: "وصلت", read: "قُرئت",
-  failed: "فشل الإرسال", no_phone: "لا يوجد رقم", reinforcement: "تعزيز", correction: "تصحيح", reversal: "عكس قيد", badge: "وسام", awarded: "ممنوحة", reversed: "معكوسة",
+  failed: "فشل الإرسال", not_evaluated: "لم يُقيَّم", no_phone: "لا يوجد رقم", reinforcement: "تعزيز", correction: "تصحيح", reversal: "عكس قيد", badge: "وسام", awarded: "ممنوحة", reversed: "معكوسة",
   absence: "إشعار غياب", lateness: "إشعار تأخر", lateness_repeat: "تكرار التأخر", escalation: "إجراء نظامي", excuse_received: "استلام عذر", excuse_result: "نتيجة العذر",
   course: "دورة تدريبية", workshop: "ورشة عمل", conference: "مؤتمر", reading: "قراءة مهنية", certificate: "شهادة", followup: "متابعة", agent: "وكيل شؤون الطلاب", counselor: "موجه طلابي",
   owner: "مسؤول", participant: "مشارك", reviewer: "مراجع", lead: "قائد", suspended: "موقوف",
@@ -101,8 +101,8 @@ function model(p) {
     ["أنشطة النمو المهني", cnt("growth"), "ok"],
     ["مجتمعات التعلم", cnt("communities"), "info"],
     ["المبادرات والمشاركات", cnt("initiatives"), "info"],
-    ["إسنادات التقويم الذاتي", cnt("se_assign"), "info"],
-    ["الخطط والبرامج", cnt("plans", (r) => r.ev !== "ربط المنفذ بحسابه"), "info"],
+        ["البرامج المسندة", cnt("sp_programs"), "info"],
+    ["المؤشرات المسندة", cnt("se_assign"), "info"],
     ["حجوزات المرافق", cnt("bookings"), "info"],
   ];
   const total = secs.reduce((a, s) => a + (s.n || 0), 0);
@@ -143,4 +143,75 @@ async function boot(page, render, o = {}) {
   $("#out").onclick = (e) => { e.preventDefault(); doLogout(); };
   const main = $("#main");
   try { await render(main, who); } catch (e) { console.error(e); main.innerHTML = `<div class="card"><p class="err">${esc(mapErr(e))}</p><button class="btn sec" onclick="location.reload()">إعادة المحاولة</button></div>`; }
+}
+
+// ===== الخطط الذكية: قائمة البرامج من موقع الخطط الذكية + تعديلات المنسق من القاعدة =====
+// موقع الخطط الذكية يحفظ خطته الأصلية داخل صفحته (const DATA)، ويحفظ في القاعدة تعديلات المنسق وربط المنفذين والتوثيقات.
+// نطبّق التعديلات بالترتيب نفسه الذي يطبّقه موقع الخطط الذكية، دون أي نسخ أو تخزين.
+const SP_URL = window.SMART_PLANS_URL || "/smart-plans/";
+function jsonAfter(src, marker) {
+  const i = src.indexOf(marker); if (i < 0) return null;
+  const k = src.indexOf("{", i); let depth = 0, str = false, bs = false;
+  for (let j = k; j < src.length; j++) { const c = src[j];
+    if (str) { if (bs) bs = false; else if (c === "\\") bs = true; else if (c === '"') str = false; continue; }
+    if (c === '"') str = true; else if (c === "{") depth++; else if (c === "}" && !--depth) return JSON.parse(src.slice(k, j + 1)); }
+  return null;
+}
+const normN = (t) => String(t || "").replace(/[ً-ْـ]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/[^ء-يa-zA-Z0-9]+/g, " ").trim();
+async function smartPlansSections(extra, sid) {
+  const B = { grp: "plans", system: "الخطط الذكية" };
+  const S = {
+    owned: { ...B, key: "sp_plans", title: "الخطط التي يتولى مسؤوليتها", cols: [["name", "الخطة"], ["n", "عدد برامجها"]] },
+    progs: { ...B, key: "sp_programs", title: "البرامج المسندة إليه في الخطط الذكية", cols: [["code", "الرمز"], ["name", "البرنامج"], ["plan", "الخطة"], ["domain", "المجال"], ["ind", "المؤشر المستهدف"], ["when", "الموعد المخطط"], ["st", "الحالة"], ["exn", "التوثيقات"]],
+      note: "قائمة البرامج من موقع الخطط الذكية، مع تعديلات المنسق وربط المنفذين المحفوظة في قاعدة النواة." },
+    exec: { ...B, key: "sp_exec", title: "توثيقات التنفيذ التي سجّلها", cols: [["d", "تاريخ التنفيذ"], ["prog", "البرنامج"], ["no", "رقم التنفيذ"], ["loc", "المكان"]] },
+  };
+  const fail = (msg) => Object.values(S).map((s) => ({ ...s, status: "error", rows: [], error: msg }));
+  if (!extra || !extra.sp) return fail((extra && extra.sp_error) || "تعذرت قراءة سجلات الخطط الذكية");
+  let DATA;
+  try { const r = await fetch(new URL(SP_URL, location.origin), { cache: "no-store" }); if (!r.ok) throw 0; DATA = jsonAfter(await r.text(), "const DATA ="); if (!DATA || !Array.isArray(DATA.progs)) throw 0; }
+  catch (_) { return fail("تعذر الوصول إلى قائمة البرامج في موقع الخطط الذكية"); }
+  const recs = extra.sp.records || [], dir = extra.sp.staff || [], D = Object.fromEntries(dir.map((m) => [m.id, m]));
+  const isCo = (r) => r.col === "executions" && r.data && r.data.kind === "coordinator";
+  const co = recs.filter(isCo).map((r) => ({ ...r.data, _id: r.id })).sort((a, b) => String(a.at || "").localeCompare(String(b.at || "")));
+  const ex = recs.filter((r) => r.col === "executions" && !isCo(r) && r.data && r.data.programId != null).map((r) => ({ ...r.data, _id: r.id }));
+  // الخطط: الأصلية + المضافة، مع التعديل والحذف
+  let plans = (DATA.plans || []).map((x) => ({ ...x }));
+  for (const d of co) {
+    if (d.type === "plan-add" && d.plan && d.plan.id != null && !plans.some((x) => String(x.id) === String(d.plan.id))) plans.push({ ...d.plan });
+    else if (d.type === "plan-edit" && d.planId != null) { const x = plans.find((y) => String(y.id) === String(d.planId)); if (x) Object.assign(x, d.fields || {}); }
+    else if (d.type === "plan-remove" && d.planId != null) plans = plans.filter((y) => String(y.id) !== String(d.planId));
+  }
+  // البرامج: الأصلية + غير المدرجة + المضافة من لوحة المنسق، ثم الحذف، ثم التعديلات بترتيبها الزمني
+  let progs = DATA.progs.map((p) => ({ ...p }));
+  recs.filter((r) => r.col === "unplanned" && r.data).forEach((r, i) => progs.push({ ...r.data, id: "x-" + r.id, code: "UP-" + String(i + 1).padStart(3, "0"), plan_name: "غير مدرج في الخطة", status: "لم يبدأ", planned_text: "غير مدرج في الخطة" }));
+  let n = 0; co.filter((d) => d.type === "add" && d.data).forEach((d) => { n++; progs.push({ status: "لم يبدأ", ...d.data, id: "c-" + d._id, code: "PC-" + String(n).padStart(3, "0") }); });
+  const gone = new Set(); co.forEach((d) => { if (d.type === "remove" && d.progId != null) gone.add(String(d.progId)); else if (d.type === "restore" && d.progId != null) gone.delete(String(d.progId)); });
+  progs = progs.filter((p) => !gone.has(String(p.id)));
+  co.filter((d) => d.type === "edit" && d.fields).forEach((d) => { const p = progs.find((x) => String(x.id) === String(d.progId)); if (p) Object.assign(p, d.fields); });
+  // المنفذ: المعرّف المحفوظ، أو ربط الاسم بالحساب من المنسق، أو تطابق الاسم الموحّد مع منسوب واحد فقط
+  const OL = {}; co.forEach((d) => { if (d.type === "owner-link" && d.from) { delete OL[d.from]; if (!d.group && d.staff_id) OL[d.from] = d.staff_id; } });
+  const who = (name, s) => { if (s && D[s]) return s; const t = String(name || "").trim(); if (!t) return null; if (OL[t] && D[OL[t]]) return OL[t]; const k = normN(t), c = dir.filter((m) => normN(m.name) === k); return c.length === 1 ? c[0].id : null; };
+  const planName = (p) => { const x = plans.find((y) => String(y.id) === String(p.plan_id)); return x ? x.name : p.plan_name || ""; };
+  const exFor = (p) => ex.filter((e) => String(e.programId) === String(p.id));
+  const mine = progs.filter((p) => who(p.owner_name, p.owner_staff_id) === sid);
+  S.progs.rows = mine.map((p) => ({ id: String(p.id), d: isDay(p.planned_date) ? p.planned_date : null, ev: "برنامج مسند", ds: p.name, st: p.status || null, tl: false,
+    code: p.code, name: p.name, plan: planName(p), domain: p.domain, ind: p.indicator, when: [p.planned_text, p.term_text].filter(Boolean).join(" · ") || null, exn: String(exFor(p).length) }));
+  S.owned.rows = plans.filter((x) => who(x.owner, x.owner_staff_id) === sid).map((x) => ({ id: "plan-" + x.id, d: null, ev: "مسؤولية خطة", ds: x.name, st: null, tl: false, name: x.name, n: String(progs.filter((p) => String(p.plan_id) === String(x.id)).length) }));
+  S.exec.rows = ex.filter((e) => (e.executor_staff_id ? e.executor_staff_id === sid : who(e.executor) === sid)).map((e) => {
+    const p = progs.find((x) => String(x.id) === String(e.programId));
+    return { id: e._id, d: isDay(e.date) ? e.date : null, ev: "توثيق تنفيذ برنامج", ds: p ? p.name : e.programCode || "برنامج", st: null, prog: p ? `${p.code} ${p.name}` : e.programCode, no: e.no != null ? String(e.no) : null, loc: e.location || null };
+  });
+  return Object.values(S).map((s) => ({ ...s, status: "ok", rows: s.rows.sort((a, b) => String(b.d || "").localeCompare(String(a.d || ""))) }));
+}
+// يُكمل ملف المعلم: تفاصيل التقويم الذاتي والبرامج المسندة في الخطط الذكية
+async function enrichStaff(p) {
+  let extra;
+  try { extra = await rpc("mr_staff_extra", { p_id: p.person.id }); } catch (e) { extra = { sp: null, sp_error: mapErr(e), sections: [] }; }
+  (extra.sections || []).forEach((s) => { const i = p.sections.findIndex((x) => x.key === s.key); if (i >= 0) p.sections[i] = s; else p.sections.push(s); });
+  const sp = await smartPlansSections(extra, p.person.id);
+  const i = p.sections.findIndex((x) => x.key === "plans");
+  if (i >= 0) p.sections[i] = { ...p.sections[i], title: "سجل إسنادات المنسق في الخطط الذكية" };
+  p.sections.splice(i >= 0 ? i : p.sections.length, 0, ...sp);
+  return p;
 }
