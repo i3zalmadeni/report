@@ -3,7 +3,7 @@ const PAGES = {};
 const qs = new URLSearchParams(location.search);
 
 // ===== البحث الموحد =====
-PAGES.search = () => boot("index.html", async (main, who) => {
+PAGES.search = () => boot("search.html", async (main, who) => {
   let kind = qs.get("k") === "staff" ? "staff" : "student";
   main.innerHTML = `<section class="mr-hero card">
     <div class="mr-hero-t"><span class="mr-mark" aria-hidden="true">${LOGO}</span><div><h2>الملف الشامل</h2>
@@ -66,7 +66,7 @@ const secNotice = (s) => s.status === "restricted" ? `<p class="mr-note">${ico("
 
 PAGES.profile = () => boot("profile.html", async (main) => {
   const kind = qs.get("k") === "staff" ? "staff" : "student", id = qs.get("id") || "";
-  if (!/^[0-9a-f-]{36}$/i.test(id)) { main.innerHTML = `<div class="card"><p class="err">رابط غير صحيح.</p><a class="btn sec" href="index.html">العودة إلى البحث</a></div>`; return; }
+  if (!/^[0-9a-f-]{36}$/i.test(id)) { main.innerHTML = `<div class="card"><p class="err">رابط غير صحيح.</p><a class="btn sec" href="search.html">العودة إلى البحث</a></div>`; return; }
   main.innerHTML = loading("جارٍ جمع السجلات من الأنظمة…");
   const p = await rpc(kind === "student" ? "mr_student_profile" : "mr_staff_profile", { p_id: id });
   const m = model(p), P = p.person;

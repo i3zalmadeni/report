@@ -114,7 +114,7 @@ const cell = (k, v) => (k === "d" || /_d$|^due$|^review$|^sub$|^joined$|^first$|
 const kindLabel = (k) => (k === "student" ? "متعلم" : "معلم");
 
 // ===== الهيكل: ترويسة النواة، والتحقق من الجلسة والصلاحية قبل أي عرض =====
-const NAV = [["index.html", "البحث", "search", "بحث موحد عن متعلم أو معلم"]];
+const NAV = [["search.html", "البحث", "search", "بحث موحد عن متعلم أو معلم"]];
 async function boot(page, render, o = {}) {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { location.replace("login.html?next=" + encodeURIComponent(location.pathname.split("/").pop() + location.search)); return; }
@@ -131,7 +131,7 @@ async function boot(page, render, o = {}) {
   if (o.bare) { await render(shell, who); return; }
   const role = who.is_admin ? "مدير النواة الرقمية" : "مطّلع مخوّل";
   shell.innerHTML =
-    `<header class="dash"><div class="wrap top">${brandHTML("index.html")}<div class="idl">${coreBlock()}${headMoe}</div></div>
+    `<header class="dash"><div class="wrap top">${brandHTML("index.html")}<div class="idl"><a class="sitelink" href="index.html">الموقع الإلكتروني</a><span class="vdiv"></span>${coreBlock()}${headMoe}</div></div>
      <div class="strip" aria-hidden="true"></div>
      <div class="dnav"><div class="wrap dn"><div class="dnav-in">${NAV.map(([h, n, e, t]) => `<a href="${h}" title="${esc(t)}" class="${h === page ? "on" : ""}" ${h === page ? 'aria-current="page"' : ""}>${ico(e)}${n}</a>`).join("")}</div>
      <div class="dwho"><span class="dname">${esc(who.name)}</span><a class="loginbtn" href="#" id="out">خروج</a></div></div></div></header>

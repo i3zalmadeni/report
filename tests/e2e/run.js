@@ -24,6 +24,16 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
   };
   const shot = async (p, n) => { await p.waitForTimeout(500); return p.screenshot({ path: `${OUT}/${n}.png`, fullPage: true }); };
 
+  // 0) الصفحات العامة: الرئيسية و«عن مرآة» دون دخول ودون أي بيانات
+  for (const [pg, sel, txt] of [["index.html", ".tk-g", "ماذا يقدم الملف الشامل؟"], ["about.html", "#ab-faq", "أسئلة متوقعة"]]) {
+    const q = await open(null); await q.goto(`${BASE}/${pg}`); await q.waitForSelector(sel);
+    ok((await q.textContent("body")).includes(txt) && !(await q.content()).includes("mr_"), `[${pg}] الصفحة العامة تعمل دون دخول`);
+    ok((await q.$$("header nav a")).length >= 3, `[${pg}] الترويسة العامة: الرئيسية، عن مرآة، الاستعلام`);
+    ok(await q.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `[${pg}] لا تمرير أفقي`);
+    for (let y = 0; y < 9000; y += 500) { await q.evaluate((v) => scrollTo(0, v), y); await q.waitForTimeout(120); } await q.evaluate(() => scrollTo(0, 0)); await q.waitForTimeout(1200); await q.screenshot({ path: `${OUT}/00-${pg}.png`, fullPage: true });
+    ok(q.errs.length === 0, `[${pg}] لا أخطاء JavaScript: ` + q.errs.join(" | "));
+  }
+
   // 1) بلا جلسة: تحويل إلى الدخول، ولا بيانات
   let p = await open(null);
   await p.goto(`${BASE}/profile.html?k=student&id=${S1}`); await p.waitForURL(/login\.html/);
@@ -31,14 +41,14 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
 
   // 2) معلم بلا صلاحية
   p = await open(U.teacher);
-  await p.goto(`${BASE}/index.html`); await p.waitForSelector("text=لا تملك صلاحية الاطلاع");
+  await p.goto(`${BASE}/search.html`); await p.waitForSelector("text=لا تملك صلاحية الاطلاع");
   ok(!(await p.$("#q")), "المعلم غير المخوّل لا يرى البحث");
   await p.goto(`${BASE}/profile.html?k=student&id=${S1}`); await p.waitForSelector("text=لا تملك صلاحية الاطلاع");
   ok(!(await p.content()).includes("أحمد"), "ولا يصل إلى بيانات المتعلم");
 
   // 3) المطّلع المخوّل: البحث ثم الملف
   p = await open(U.viewer, 1024, 1300); // مقاس الآيباد تقريباً
-  await p.goto(`${BASE}/index.html`); await p.waitForSelector("#q");
+  await p.goto(`${BASE}/search.html`); await p.waitForSelector("#q");
   ok(!(await p.$("form input:not([type=search]):not([type=hidden]), textarea")), "لا توجد حقول إدخال بيانات في واجهة البحث");
   await p.fill("#q", "احمد"); await p.waitForSelector(".mr-hit");
   ok((await p.$$(".mr-hit")).length === 1 && (await p.textContent(".mr-hit")).includes("الثاني المتوسط"), "البحث بتوحيد الهمزة يعرض الصف الحالي");
@@ -61,7 +71,7 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
 
   // 4) المدير: ملف المعلم
   p = await open(U.admin);
-  await p.goto(`${BASE}/index.html?k=staff`); await p.waitForSelector("#q"); await p.fill("#q", "4455667"); await p.waitForSelector(".mr-hit");
+  await p.goto(`${BASE}/search.html?k=staff`); await p.waitForSelector("#q"); await p.fill("#q", "4455667"); await p.waitForSelector(".mr-hit");
   ok((await p.textContent(".mr-hit")).includes("إبراهيم المعلم"), "بحث المعلم بالرقم الوظيفي للمخول");
   await p.goto(`${BASE}/profile.html?k=staff&id=${T3}`); await p.waitForSelector("#tl");
   ok((await p.textContent("#s-plans")).includes("مشروع نافس للرياضيات") && !(await p.textContent("#s-plans")).includes("لا يخصه"), "الخطط الذكية مربوطة بمعرّف المعلم فقط");
