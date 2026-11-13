@@ -8,14 +8,15 @@ const rCell = (k, v) => ((k === "d" || /_d$|^due$|^review$|^sub$|^joined$|^first
 PAGES.report = () => boot("report.html", async (root) => {
   const kind = qs.get("k") === "staff" ? "staff" : "student", id = qs.get("id") || "";
   root.innerHTML = `<div class="rp-bar no-print"><div class="rp-bar-in"><b>معاينة التقرير</b><span id="rpst" class="rp-st">جارٍ جمع السجلات…</span>
-    <span class="sp"></span><a class="rb sec" href="profile.html?k=${kind}&id=${encodeURIComponent(id)}">العودة إلى الملف</a><button class="rb" id="go" disabled>تصدير الملف الشامل PDF</button></div>
+    <span class="sp"></span><button class="rb sec" id="pick" type="button" aria-expanded="false" aria-controls="pk" disabled>محتوى التقرير <span id="pkc"></span></button><a class="rb sec" href="profile.html?k=${kind}&id=${encodeURIComponent(id)}">العودة إلى الملف</a><button class="rb" id="go" disabled>تصدير الملف الشامل PDF</button></div>
+    <div id="pk" class="rp-pick" hidden></div>
     <p class="rp-tip">في نافذة الطباعة اختر «حفظ بتنسيق PDF»، والمقاس A4، والاتجاه عمودي، والهوامش «الافتراضية»، وألغِ خيار «الرؤوس والتذييلات» الخاص بالمتصفح. أفضل نتيجة من متصفح Chrome أو Edge.</p></div>
     <div id="doc" class="rp-doc"></div>`;
   if (!/^[0-9a-f-]{36}$/i.test(id)) { $("#rpst").textContent = "رابط غير صحيح."; return; }
   let p;
   try { p = await rpc(kind === "student" ? "mr_student_profile" : "mr_staff_profile", { p_id: id }); if (kind === "staff") await enrichStaff(p); }
   catch (e) { $("#rpst").textContent = mapErr(e); $("#rpst").classList.add("bad"); return; }
-  const m = model(p), P = p.person, title = "الملف الشامل " + (kind === "student" ? "للمتعلم" : "للمعلم");
+  const P = p.person, title = "الملف الشامل " + (kind === "student" ? "للمتعلم" : "للمعلم");
   document.title = title + " – " + P.name;
   // الرأس والتذييل في هوامش كل صفحة (CSS Paged Media)، مع الترقيم التلقائي
   const st = document.createElement("style");
@@ -23,7 +24,40 @@ PAGES.report = () => boot("report.html", async (root) => {
     @bottom-right{content:${cssStr("تاريخ الاستخراج: " + p.generated_at)}}}`;
   document.head.appendChild(st);
 
+  // ===== اختيار محتوى التقرير: أجزاؤه، والأنظمة وأقسامها (الافتراضي: الكل). يُحفظ الاختيار على هذا الجهاز فقط =====
+  const LS = "mr-report-" + kind, saved = (() => { try { return JSON.parse(localStorage.getItem(LS) || "null"); } catch (_) { return null; } })();
+  const SEL = new Set(p.sections.map((s) => s.key).filter((k) => !(saved && (saved.off || []).includes(k))));
+  const PART = { sum: true, det: true, tl: true, ...((saved && saved.parts) || {}) };
+  const save = () => { try { localStorage.setItem(LS, JSON.stringify({ off: p.sections.map((s) => s.key).filter((k) => !SEL.has(k)), parts: PART })); } catch (_) {} };
+  const systems = [...new Set(p.sections.map((s) => s.system))].map((name) => ({ name, secs: p.sections.filter((s) => s.system === name) }));
+  const cnt = (s) => (s.status === "ok" ? `(${s.rows.length})` : SST[s.status]);
+  const pk = $("#pk");
+  pk.innerHTML = `<div class="pk-h"><b>اختر محتوى التقرير</b><span id="pkn" class="pk-n"></span><span class="sp"></span>
+      <button type="button" class="rb sec sm" data-all="1">تحديد الكل</button><button type="button" class="rb sec sm" data-all="0">إلغاء الكل</button></div>
+    <div class="pk-parts"><b>أجزاء التقرير:</b>${[["sum", "الملخص العام"], ["det", "الأقسام التفصيلية"], ["tl", "السجل الزمني الموحد"]].map(([k, t]) => `<label><input type="checkbox" data-part="${k}"${PART[k] ? " checked" : ""}> ${t}</label>`).join("")}<span class="pk-note">بطاقة التعريف تظهر دائماً.</span></div>
+    <div class="pk-g">${systems.map((g, gi) => `<fieldset class="pk-sys"><legend><label><input type="checkbox" data-sys="${gi}"> ${esc(g.name)}</label><small>${((n) => (n === 1 ? "قسم واحد" : n === 2 ? "قسمان" : n <= 10 ? n + " أقسام" : n + " قسماً"))(g.secs.length)}</small></legend>
+      ${g.secs.map((s, i) => `<label class="pk-i ${s.status === "ok" && !s.rows.length ? "empty" : ""}"><input type="checkbox" data-k="${esc(s.key)}"${SEL.has(s.key) ? " checked" : ""}><em>${i + 1}</em><span>${esc(s.title)}</span><small>${esc(cnt(s))}</small></label>`).join("")}</fieldset>`).join("")}</div>`;
+  const syncBoxes = () => {
+    systems.forEach((g, gi) => { const b = $(`[data-sys="${gi}"]`, pk), on = g.secs.filter((s) => SEL.has(s.key)).length; b.checked = on === g.secs.length; b.indeterminate = on > 0 && on < g.secs.length; });
+    $$("[data-k]", pk).forEach((b) => (b.checked = SEL.has(b.dataset.k)));
+    const n = SEL.size, all = p.sections.length; $("#pkn").textContent = `${n} من ${all} قسماً`; $("#pkc").textContent = n === all ? "(الكل)" : `(${n}/${all})`;
+  };
+  const changed = () => { save(); syncBoxes(); draw(); };
+  pk.addEventListener("change", (e) => { const t = e.target;
+    if (t.dataset.k) t.checked ? SEL.add(t.dataset.k) : SEL.delete(t.dataset.k);
+    else if (t.dataset.sys != null) systems[+t.dataset.sys].secs.forEach((s) => (t.checked ? SEL.add(s.key) : SEL.delete(s.key)));
+    else if (t.dataset.part) PART[t.dataset.part] = t.checked;
+    changed(); });
+  pk.addEventListener("click", (e) => { const b = e.target.closest("[data-all]"); if (!b) return; p.sections.forEach((s) => (b.dataset.all === "1" ? SEL.add(s.key) : SEL.delete(s.key))); if (b.dataset.all === "1") Object.keys(PART).forEach((k) => (PART[k] = true)); $$("[data-part]", pk).forEach((x) => (x.checked = PART[x.dataset.part])); changed(); });
+  const pickBtn = $("#pick"); pickBtn.disabled = false;
+  const openPick = (o) => { pk.hidden = !o; pickBtn.setAttribute("aria-expanded", String(o)); };
+  pickBtn.onclick = () => openPick(pk.hidden);
   const fields = personFields(p, kind);
+  let m;
+  const draw = () => {
+  m = model({ ...p, sections: p.sections.filter((s) => SEL.has(s.key)) });
+  const ORD = ["أولاً", "ثانياً", "ثالثاً"]; let oi = 0;
+  const custom = SEL.size < p.sections.length || !PART.sum || !PART.det || !PART.tl;
   const okSecs = m.secs.filter((s) => s.n > 0), emptySecs = m.secs.filter((s) => s.status === "ok" && !s.n);
   const groups = GROUPS[kind].map(([g, n]) => ({ n, secs: okSecs.filter((s) => s.grp === g) })).filter((x) => x.secs.length);
   $("#doc").innerHTML = `
@@ -40,18 +74,19 @@ PAGES.report = () => boot("report.html", async (root) => {
       ${P.pro?.headline ? `<p class="rp-pro"><b>الملف المهني (مجتمع لبيد المهني):</b> ${esc(P.pro.headline)}${(P.pro.subjects || []).length ? " · المواد: " + esc(P.pro.subjects.join("، ")) : ""}</p>` : ""}
     </section>
 
-    <section class="rp-block">
-      <h2 class="rp-h">أولاً: الملخص العام</h2>
+    ${custom ? `<p class="rp-note rp-custom">تقرير مخصص: يتضمن ${m.secs.length} قسماً من ${p.sections.length} في الملف الشامل، وفق اختيار المستخرج${[["sum", "الملخص العام"], ["det", "الأقسام التفصيلية"], ["tl", "السجل الزمني الموحد"]].filter(([k]) => !PART[k]).map(([, t]) => "، ودون " + t).join("")}.</p>` : ""}
+    ${PART.sum ? `<section class="rp-block">
+      <h2 class="rp-h">${ORD[oi++]}: الملخص العام</h2>
       <div class="rp-kpis"><div><b>${m.total}</b><span>سجلاً مرتبطاً</span></div><div><b>${m.withData}</b><span>قسماً فيه بيانات من ${m.secs.length}</span></div>
         ${m.ind.map(([n, v]) => `<div><b>${esc(v)}</b><span>${esc(n)}</span></div>`).join("")}</div>
       <table class="rp-t rp-map"><thead><tr><th>القسم</th><th>النظام المصدر</th><th>عدد السجلات</th></tr></thead>
         <tbody>${m.secs.map((s) => `<tr><td>${esc(s.title)}</td><td>${esc(s.system)}</td><td>${s.status === "ok" ? s.n : esc(SST[s.status])}</td></tr>`).join("")}</tbody></table>
       ${m.issues.length ? `<p class="rp-warn">تنبيه: تعذرت القراءة من ${m.issues.map((s) => esc(s.title + " (" + s.system + ")")).join("، ")} وقت الاستخراج، فلا يتضمن التقرير سجلاتها.</p>` : ""}
       ${m.restricted.length ? `<p class="rp-note">أقسام لم تُعرض لأنها مقيدة بصلاحيات أنظمتها: ${m.restricted.map((s) => esc(s.title)).join("، ")}.</p>` : ""}
-    </section>
+    </section>` : ""}
 
-    <section class="rp-block">
-      <h2 class="rp-h">ثانياً: الأقسام التفصيلية</h2>
+    ${PART.det ? `<section class="rp-block">
+      <h2 class="rp-h">${ORD[oi++]}: الأقسام التفصيلية</h2>
       ${groups.length ? groups.map((G) => `<h3 class="rp-g">${esc(G.n)}</h3>${G.secs.map((s) => `
         <section class="rp-sec">
           <table class="rp-t"><caption><b>${esc(s.title)}</b><span>المصدر: ${esc(s.system)} · ${s.n} ${s.n > 10 ? "سجلاً" : "سجلات"}</span></caption>
@@ -61,22 +96,30 @@ PAGES.report = () => boot("report.html", async (root) => {
           ${s.note ? `<p class="rp-fn">${esc(s.note)}</p>` : ""}
         </section>`).join("")}`).join("") : `<p class="rp-note">لا توجد سجلات مرتبطة بهذا الملف في الأنظمة المتاحة.</p>`}
       ${emptySecs.length ? `<p class="rp-note">أقسام لا تتوفر فيها بيانات حالياً: ${emptySecs.map((s) => esc(s.title) + " (" + esc(s.system) + ")").join("، ")}.</p>` : ""}
-    </section>
+    </section>` : ""}
 
-    <section class="rp-block">
-      <h2 class="rp-h">ثالثاً: السجل الزمني الموحد</h2>
+    ${PART.tl ? `<section class="rp-block">
+      <h2 class="rp-h">${ORD[oi++]}: السجل الزمني الموحد</h2>
       ${m.tl.length ? `<table class="rp-t rp-tl"><caption><span>${m.tl.length} حدثاً من الأحدث إلى الأقدم</span></caption>
         <thead><tr><th>التاريخ</th><th>الحدث</th><th>الوصف</th><th>النظام المصدر</th><th>الحالة</th></tr></thead>
         <tbody>${m.tl.map((x) => `<tr><td>${rDate(x.d)}</td><td>${esc(x.ev)}</td><td>${esc(lbl(x.ds) === "—" ? "" : lbl(x.ds))}</td><td>${esc(x.src)}</td><td>${esc(x.st ? lbl(x.st) : "—")}</td></tr>`).join("")}</tbody></table>`
-        : `<p class="rp-note">لا توجد أحداث مؤرخة مرتبطة بهذا الملف.</p>`}
-    </section>
+        : `<p class="rp-note">لا توجد أحداث مؤرخة ضمن الأقسام المختارة.</p>`}
+    </section>` : ""}
 
     <footer class="rp-end">هذا التقرير نافذة استعلامية على البيانات الموجودة في أنظمة النواة الرقمية لحظة استخراجه، ولا يُنشئ أي بيانات جديدة.
       المرجع في أي سجل هو نظامه المصدر المذكور بجانبه. استُخرج بواسطة: ${esc(window.__mr?.name || "")}.</footer>
   </article>`;
+  const empty = !SEL.size || (!PART.sum && !PART.det && !PART.tl);
+  $("#go").disabled = empty;
+  $("#rpst").classList.remove("bad");
+  $("#rpst").textContent = empty ? "اختر قسماً واحداً وجزءاً واحداً على الأقل من محتوى التقرير." : `${m.secs.length} قسماً · ${m.total} سجلاً · ${m.tl.length} حدثاً في السجل الزمني`;
+  };
+  draw(); syncBoxes();
+  if (qs.get("pick") === "1") openPick(true);
   await (document.fonts?.ready || Promise.resolve());
-  const go = $("#go"); go.disabled = false; $("#rpst").textContent = `${m.total} سجلاً · ${m.tl.length} حدثاً في السجل الزمني`;
+  const go = $("#go"); draw();
   const doPrint = async () => {
+    if (go.disabled) return; openPick(false);
     go.disabled = true;
     try { await rpc("mr_log_export", { p_kind: kind, p_id: id }); window.print(); }
     catch (e) { $("#rpst").textContent = "تعذر تسجيل عملية التصدير، فلم يُصدَّر التقرير: " + mapErr(e); $("#rpst").classList.add("bad"); }

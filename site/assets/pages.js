@@ -81,7 +81,7 @@ PAGES.profile = () => boot("profile.html", async (main) => {
       <div class="mr-id-t"><small>${kind === "student" ? "ملف متعلم" : "ملف معلم"}</small><h2>${esc(P.name)}</h2>
       <p class="sub sm">المعرّف الموحد في النواة: <bdi class="mr-uuid" dir="ltr">${esc(P.id)}</bdi></p></div>
       <div class="mr-acts"><a class="btn sec" href="report.html?k=${kind}&id=${id}" target="_blank" rel="noopener">${ico("eye")}معاينة التقرير</a>
-      <a class="btn" href="report.html?k=${kind}&id=${id}&print=1" target="_blank" rel="noopener">${ico("print")}تصدير الملف الشامل PDF</a></div></div>
+      <a class="btn" href="report.html?k=${kind}&id=${id}&pick=1" target="_blank" rel="noopener">${ico("print")}تصدير الملف الشامل PDF</a></div></div>
     <dl class="mr-dl">${personFields(p, kind).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join("")}</dl>
     ${pro ? `<div class="mr-pro"><b>${ico("star")}الملف المهني <small>مجتمع لبيد المهني</small></b>${pro.headline ? `<p>${esc(pro.headline)}</p>` : ""}
       ${(pro.subjects || []).length ? `<p class="sub sm">المواد: ${esc(pro.subjects.join("، "))}</p>` : ""}${(pro.skills || []).length ? `<div class="mr-chips">${pro.skills.slice(0, 16).map((x) => `<span>${esc(x)}</span>`).join("")}</div>` : ""}</div>` : ""}

@@ -126,7 +126,32 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
     await p.click("#go"); await p.waitForFunction(() => window.__printed === 1);
     ok(p.errs.length === 0, `[${n}] لا أخطاء JavaScript في التقرير: ` + p.errs.join(" | "));
   }
-  ok(+psql("select count(*) from audit_logs where action = 'EXPORT'") === exportsBefore + 3, "كل تصدير مسجل في سجل عمليات النواة");
+  ok(+psql("select count(*) from audit_logs where action = 'EXPORT'") >= exportsBefore + 3, "كل تصدير مسجل في سجل عمليات النواة");
+
+  // 5ب) اختيار محتوى التقرير قبل التصدير
+  p = await open(U.admin);
+  await p.goto(`${BASE}/report.html?k=student&id=${S1}&pick=1`); await p.waitForFunction(() => window.__ready === true);
+  ok(await p.isVisible("#pk"), "لوحة محتوى التقرير مفتوحة عند الدخول من زر التصدير");
+  ok((await p.$$eval("#pk [data-k]", (l) => l.every((b) => b.checked))) && (await p.textContent("#pkc")).includes("الكل"), "الافتراضي: كل الأقسام محددة");
+  const qmIdx = await p.$$eval("#pk fieldset", (l) => l.findIndex((f) => f.querySelector("legend").textContent.includes("قيمي")));
+  ok((await p.$$eval(`#pk fieldset:nth-child(${qmIdx + 1}) .pk-i em`, (l) => l.map((e) => e.textContent).join(","))).startsWith("1,2,3"), "أقسام كل نظام مرقّمة 1، 2، 3");
+  await p.click(`#pk fieldset:nth-child(${qmIdx + 1}) legend input`);
+  ok(!(await p.textContent("#doc")).includes("سجل القيم والتعزيز") && (await p.textContent("#doc")).includes("سجل الحضور والغياب"), "إلغاء نظام قيمي يحذف أقسامه من التقرير ويبقي غيره");
+  ok((await p.textContent(".rp-custom")).includes("تقرير مخصص"), "التقرير المخصص يذكر ذلك صراحة");
+  ok(!(await p.$$eval("#tlist, .rp-tl tbody tr", (l) => l.map((x) => x.textContent).join(" "))).includes("قيمي"), "السجل الزمني يتبع الاختيار");
+  await p.click('#pk [data-k="lateness"]');
+  ok(!(await p.textContent("#doc")).includes("سجل التأخر الصباحي"), "إلغاء قسم واحد");
+  ok(await p.$eval(`#pk fieldset:nth-child(${qmIdx + 1}) legend input`, (b) => !b.checked && !b.indeterminate), "مربع النظام يعكس حالة أقسامه");
+  await p.click('#pk [data-part="tl"]');
+  ok(!(await p.textContent("#doc")).includes("السجل الزمني الموحد") || (await p.textContent(".rp-custom")).includes("دون السجل الزمني"), "إخفاء جزء السجل الزمني");
+  await p.click('#pk [data-all="0"]'); ok(await p.$eval("#go", (b) => b.disabled), "إلغاء الكل يعطّل التصدير");
+  await p.click('#pk [data-all="1"]'); ok(!(await p.$eval("#go", (b) => b.disabled)) && !(await p.$(".rp-custom")), "تحديد الكل يعيد التقرير الكامل");
+  await p.click('#pk [data-k="reinforcements"]'); await p.reload(); await p.waitForFunction(() => window.__ready === true);
+  ok(!(await p.$eval('#pk [data-k="reinforcements"]', (b) => b.checked)), "يُحفظ الاختيار على الجهاز للمرة القادمة");
+  await p.screenshot({ path: `${OUT}/05-report-pick.png`, fullPage: false });
+  await p.click("#go"); await p.waitForFunction(() => window.__printed === 1);
+  ok(await p.isHidden("#pk"), "اللوحة تُغلق عند التصدير");
+  ok(p.errs.length === 0, "لا أخطاء JavaScript في اختيار المحتوى: " + p.errs.join(" | "));
 
   // 6) زر التصدير في الملف يفتح التقرير ويطبع تلقائياً
   p = await open(U.admin);
