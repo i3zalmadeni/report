@@ -69,6 +69,27 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
   await shot(p, "02-student-profile-ipad");
   ok(p.errs.length === 0, "لا أخطاء JavaScript (المطّلع): " + p.errs.join(" | "));
 
+  // 3ب) شريط الأنظمة في الملف: تفاعل مباشر، ومشترك مع التقرير
+  p = await open(U.viewer);
+  await p.goto(`${BASE}/profile.html?k=student&id=${S1}`); await p.waitForSelector("#tl");
+  const chips = await p.$$eval(".mr-sch b", (l) => l.map((x) => x.textContent));
+  ok(chips.join(",") === "النواة الرقمية,انضباطي,قيمي", "أيقونة لكل نظام في أعلى الملف: " + chips.join(","));
+  ok(await p.$$eval(".mr-sch", (l) => l.every((b) => b.getAttribute("aria-pressed") === "true")), "الافتراضي: كل الأنظمة ظاهرة");
+  await p.click('.mr-sch:has-text("قيمي")');
+  ok(!(await p.$("#s-reinforcements")) && (await p.$("#s-attendance")) && !(await p.$$eval("#tlist li b", (l) => l.map((x) => x.textContent))).includes("تعزيز"), "إخفاء قيمي يحذف أقسامه وأحداثه مباشرة");
+  ok((await p.getAttribute('.mr-sch:has-text("قيمي")', "aria-pressed")) === "false" && (await p.textContent(".mr-custom")).includes("عرض مخصص"), "حالة الأيقونة وتنبيه العرض المخصص");
+  await p.click("#fltx"); await p.click('#fltp [data-k="lateness"]');
+  ok(!(await p.$("#s-lateness")) && (await p.getAttribute('.mr-sch:has-text("انضباطي")', "aria-pressed")) === "mixed", "تخصيص قسم داخل النظام، والأيقونة تظهر اختياراً جزئياً");
+  await p.goto(`${BASE}/report.html?k=student&id=${S1}`); await p.waitForFunction(() => window.__ready === true);
+  ok(!(await p.$eval('#pk [data-k="reinforcements"]', (b) => b.checked)) && !(await p.textContent("#doc")).includes("سجل القيم والتعزيز"), "التقرير يتبع اختيار العرض نفسه");
+  await p.goBack(); await p.waitForSelector("#flt"); await p.click('#flt [data-all="0"]');
+  ok((await p.textContent("#mrc")).includes("لم تختر أي نظام"), "إخفاء الكل يعرض رسالة واضحة");
+  await p.click('#mrc [data-all="1"]');
+  ok((await p.$("#s-reinforcements")) && (await p.$("#s-lateness")) && !(await p.$(".mr-custom")), "عرض كل الأنظمة من جديد");
+  await p.click("#fltx"); await p.click('.mr-sch:has-text("قيمي")'); await p.click("#fltx");
+  await p.screenshot({ path: `${OUT}/02b-filter-bar.png`, clip: { x: 0, y: 0, width: 1280, height: 1100 } });
+  ok(p.errs.length === 0, "لا أخطاء JavaScript في شريط الأنظمة: " + p.errs.join(" | "));
+
   // 4) المدير: ملف المعلم
   p = await open(U.admin);
   await p.goto(`${BASE}/search.html?k=staff`); await p.waitForSelector("#q"); await p.fill("#q", "4455667"); await p.waitForSelector(".mr-hit");

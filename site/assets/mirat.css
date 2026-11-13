@@ -104,3 +104,30 @@ section[id],article[id]{scroll-margin-top:80px}
 .mr-gl b{display:block;font-size:1.15rem;margin-bottom:4px} .mr-gl p{margin:0;color:var(--ink2);line-height:1.85}
 .mr-gn{position:absolute;inset-inline-end:16px;top:10px;font:800 2.6rem/1 Tajawal,sans-serif;color:transparent;-webkit-text-stroke:1.4px color-mix(in srgb,var(--brand) 35%,transparent)}
 @media(max-width:760px){.mr-goals{grid-template-columns:1fr}}
+/* شريط الأنظمة المعروضة في الملف */
+.btn.sm{padding:7px 12px;font-size:.84rem;min-height:36px}
+.mr-flt{padding:12px 14px;margin:14px 0 0}
+.mr-flt-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px} .mr-flt-h>b{display:flex;align-items:center;gap:6px} .mr-gap{flex:1}
+.mr-flt-h .btn{display:inline-flex;flex-direction:row;align-items:center;gap:6px;margin:0} .mr-flt-h .btn .ico{width:16px;height:16px;margin:0}
+.mr-sysb{display:flex;gap:12px;flex-wrap:wrap;padding-top:6px}
+.mr-sch{position:relative;display:flex;align-items:center;gap:9px;border:1.5px solid var(--line);background:var(--surface);border-radius:14px;padding:7px 14px 7px 14px;font:inherit;color:var(--muted);cursor:pointer;text-align:start;transition:all .15s;min-height:48px}
+.mr-sch .ic{display:grid;place-items:center;width:32px;height:32px;border-radius:10px;background:var(--soft);color:var(--muted);transition:all .15s}
+.mr-sch .ic .ico{width:18px;height:18px}
+.mr-sch .tx{display:flex;flex-direction:column;line-height:1.25} .mr-sch .tx b{font-size:.9rem} .mr-sch .tx small{font-size:.72rem}
+.mr-sch .ck{position:absolute;inset-inline-end:-6px;top:-6px;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--line);background:var(--surface);display:grid;place-items:center}
+.mr-sch .ck .ico{width:12px;height:12px;opacity:0}
+.mr-sch[aria-pressed="true"],.mr-sch[aria-pressed="mixed"]{border-color:var(--brand);color:var(--ink);background:var(--brandsoft)}
+.mr-sch[aria-pressed="true"] .ic,.mr-sch[aria-pressed="mixed"] .ic{background:var(--grad);color:#fff}
+.mr-sch[aria-pressed="true"] .ck{background:var(--brand);border-color:var(--brand);color:#fff} .mr-sch[aria-pressed="true"] .ck .ico{opacity:1}
+.mr-sch[aria-pressed="mixed"] .ck{border-color:var(--brand);background:linear-gradient(90deg,transparent 30%,var(--brand) 30% 70%,transparent 70%) center/100% 2px no-repeat}
+.mr-sch:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+.mr-sch:focus-visible{outline:3px solid var(--brandsoft);outline-offset:2px}
+.mr-fltp{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-top:12px}
+.mr-fltp .pk-sys{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 10px 10px;min-width:0}
+.mr-fltp .pk-sys legend{display:flex;align-items:center;gap:8px;padding:0 4px;font-weight:800;color:var(--brand2)} .mr-fltp .pk-sys legend small{color:var(--muted);font-weight:500;font-size:.75rem}
+.mr-fltp label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;margin:0}
+.mr-fltp input{width:17px;height:17px;accent-color:var(--brand);margin:0;min-height:0}
+.mr-fltp .pk-i{display:flex;width:100%;padding:4px 2px;font-size:.86rem;border-radius:6px} .mr-fltp .pk-i:hover{background:var(--soft)}
+.mr-fltp .pk-i em{font-style:normal;min-width:18px;height:18px;border-radius:50%;background:var(--soft);color:var(--brand2);font-size:.72rem;font-weight:800;display:grid;place-items:center}
+.mr-fltp .pk-i span{flex:1} .mr-fltp .pk-i small{color:var(--muted);font-size:.74rem;white-space:nowrap} .mr-fltp .pk-i.empty span{color:var(--muted)}
+.mr-custom{background:var(--c3b);color:var(--c3f)}

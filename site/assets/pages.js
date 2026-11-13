@@ -70,10 +70,10 @@ PAGES.profile = () => boot("profile.html", async (main) => {
   main.innerHTML = loading("جارٍ جمع السجلات من الأنظمة…");
   const p = await rpc(kind === "student" ? "mr_student_profile" : "mr_staff_profile", { p_id: id });
   if (kind === "staff") await enrichStaff(p);
-  const m = model(p), P = p.person;
+  const P = p.person;
+  const st = selStore(kind, p);
   document.title = P.name + " – الملف الشامل – مرآة";
   $(".pagebar h1").textContent = "ملف " + kindLabel(kind) + " الشامل";
-  const groups = GROUPS[kind].map(([g, n, i]) => ({ g, n, i, secs: m.secs.filter((s) => s.grp === g) })).filter((x) => x.secs.length);
   const pro = P.pro;
   main.innerHTML = `
   <section class="card mr-id" id="sum">
@@ -88,8 +88,17 @@ PAGES.profile = () => boot("profile.html", async (main) => {
     ${P.pro_error || P.contact_error ? `<p class="mr-note bad">${ico("alert")}${esc(P.pro_error || P.contact_error)}</p>` : ""}
     <p class="sub sm mr-gen">استُخرج من الأنظمة في ${esc(p.generated_at)} بتوقيت الرياض.</p>
   </section>
+  ${filterBar(st)}
   <nav class="mr-jump card" aria-label="أقسام الملف"><a href="#sum">${ico("grid")}الملخص</a><a href="#secs">${ico("layers")}الأقسام التفصيلية</a><a href="#tl">${ico("clock")}السجل الزمني الموحد</a></nav>
 
+  <div id="mrc"></div>`;
+  // المحتوى يُعاد رسمه مباشرة مع كل تغيير في الأنظمة أو الأقسام المختارة
+  const render = () => {
+    const sel = p.sections.filter((x) => st.SEL.has(x.key));
+    if (!sel.length) { $("#mrc").innerHTML = `<div class="card empty mt"><b>لم تختر أي نظام أو قسم</b><p class="sub">اختر من شريط الأنظمة أعلاه ما تريد استعراضه.</p><button class="btn" type="button" data-all="1">عرض كل الأنظمة</button></div>`; return; }
+    const m = model({ ...p, sections: sel });
+    const groups = GROUPS[kind].map(([g, n, i]) => ({ g, n, i, secs: m.secs.filter((x) => x.grp === g) })).filter((x) => x.secs.length);
+    $("#mrc").innerHTML = `${st.SEL.size < p.sections.length ? `<p class="mr-note mr-custom">${ico("eye")}عرض مخصص: ${sel.length} من ${p.sections.length} قسماً. الأرقام والسجل الزمني تشمل الأقسام المختارة فقط، والتصدير يتبع الاختيار نفسه.</p>` : ""}
   <section class="mr-l1"><h3 class="mr-h">${ico("chart")}الملخص العام</h3>
     <div class="mr-kpis"><div class="mr-kpi main"><b>${m.total}</b><span>سجلاً مرتبطاً</span><small>في ${m.withData} من ${m.secs.length} قسماً</small></div>
       ${m.ind.map(([n, v, t]) => `<div class="mr-kpi ${t}"><b>${esc(v)}</b><span>${esc(n)}</span></div>`).join("")}</div>
@@ -115,5 +124,8 @@ PAGES.profile = () => boot("profile.html", async (main) => {
     ${m.tl.length ? `<ol class="mr-tl" id="tlist">${m.tl.map((x) => `<li data-src="${esc(x.src)}"><time>${fmtD(x.d, { long: true })}</time><div><b>${esc(x.ev)}</b>${x.st ? " " + stBadge(x.st) : ""}<p>${esc(lbl(x.ds) || "")}</p><small>${ico("layers")}${esc(x.src)} · ${esc(x.sec)}</small></div></li>`).join("")}</ol>`
       : `<p class="sub">لا توجد أحداث مؤرخة مرتبطة بهذا الملف.</p>`}</div>
   </section>`;
-  const f = $("#tlf"); if (f) f.onchange = () => $$("#tlist li").forEach((li) => (li.hidden = !!f.value && li.dataset.src !== f.value));
+    const f = $("#tlf"); if (f) f.onchange = () => $$("#tlist li").forEach((li) => (li.hidden = !!f.value && li.dataset.src !== f.value));
+  };
+  bindFilter(st, p, render);
+  render();
 }, { title: "الملف الشامل", desc: "نافذة موحدة على السجلات الموجودة في الأنظمة" });

@@ -215,3 +215,56 @@ async function enrichStaff(p) {
   p.sections.splice(i >= 0 ? i : p.sections.length, 0, ...sp);
   return p;
 }
+
+// ===== اختيار الأنظمة والأقسام: مشترك بين استعراض الملف وتصدير التقرير (يُحفظ على هذا الجهاز فقط) =====
+const SYSICO = { "النواة الرقمية": "layers", "انضباطي": "clock", "قيمي": "star", "مجتمع لبيد المهني": "users", "التقويم الذاتي": "chart", "الخطط الذكية": "list", "احجز مرفق": "home", "قيمي وانضباطي": "grid" };
+const nSec = (n) => (n === 1 ? "قسم واحد" : n === 2 ? "قسمان" : n <= 10 ? n + " أقسام" : n + " قسماً");
+function selStore(kind, p) {
+  const LS = "mr-report-" + kind;
+  const saved = (() => { try { return JSON.parse(localStorage.getItem(LS) || "null"); } catch (_) { return null; } })();
+  const st = {
+    SEL: new Set(p.sections.map((s) => s.key).filter((k) => !(saved && (saved.off || []).includes(k)))),
+    PART: { sum: true, det: true, tl: true, ...((saved && saved.parts) || {}) },
+    systems: [...new Set(p.sections.map((s) => s.system))].map((name) => ({ name, secs: p.sections.filter((s) => s.system === name) })),
+  };
+  st.save = () => { try { localStorage.setItem(LS, JSON.stringify({ off: p.sections.map((s) => s.key).filter((k) => !st.SEL.has(k)), parts: st.PART })); } catch (_) {} };
+  return st;
+}
+function filterBar(st) {
+  const cnt = (s) => (s.status === "ok" ? `(${s.rows.length})` : SST[s.status]);
+  return `<section class="card mr-flt" id="flt" aria-label="الأنظمة المعروضة">
+    <div class="mr-flt-h"><b>${ico("layers")}الأنظمة المعروضة</b><span class="sub sm" id="fltn"></span><span class="mr-gap"></span>
+      <button type="button" class="btn sec sm" data-all="1">الكل</button><button type="button" class="btn sec sm" data-all="0">إخفاء الكل</button>
+      <button type="button" class="btn sec sm" id="fltx" aria-expanded="false" aria-controls="fltp">${ico("list")}تخصيص الأقسام</button></div>
+    <div class="mr-sysb" role="group" aria-label="اختيار الأنظمة">${st.systems.map((g, gi) => `<button type="button" class="mr-sch" data-sys="${gi}" aria-pressed="true" title="${esc(g.name)}: ${nSec(g.secs.length)}">
+      <span class="ic">${ico(SYSICO[g.name] || "grid")}</span><span class="tx"><b>${esc(g.name)}</b><small>${g.secs.reduce((a, s) => a + (s.status === "ok" ? s.rows.length : 0), 0)} سجلاً</small></span><i class="ck" aria-hidden="true">${ico("check")}</i></button>`).join("")}</div>
+    <div class="mr-fltp" id="fltp" hidden>${st.systems.map((g, gi) => `<fieldset class="pk-sys"><legend><label><input type="checkbox" data-sysb="${gi}"> ${esc(g.name)}</label><small>${nSec(g.secs.length)}</small></legend>
+      ${g.secs.map((s, i) => `<label class="pk-i ${s.status === "ok" && !s.rows.length ? "empty" : ""}"><input type="checkbox" data-k="${esc(s.key)}"><em>${i + 1}</em><span>${esc(s.title)}</span><small>${esc(cnt(s))}</small></label>`).join("")}</fieldset>`).join("")}</div>
+  </section>`;
+}
+function bindFilter(st, p, render) {
+  const flt = $("#flt"), all = p.sections.length;
+  const sync = () => {
+    st.systems.forEach((g, gi) => {
+      const on = g.secs.filter((s) => st.SEL.has(s.key)).length, b = $(`[data-sys="${gi}"]`, flt), c = $(`[data-sysb="${gi}"]`, flt);
+      b.setAttribute("aria-pressed", on === g.secs.length ? "true" : on ? "mixed" : "false");
+      c.checked = on === g.secs.length; c.indeterminate = on > 0 && on < g.secs.length;
+    });
+    $$("[data-k]", flt).forEach((b) => (b.checked = st.SEL.has(b.dataset.k)));
+    $("#fltn").textContent = st.SEL.size === all ? `كل الأقسام (${all})` : `${st.SEL.size} من ${all} قسماً`;
+  };
+  const changed = () => { st.save(); sync(); render(); };
+  const setSys = (gi, on) => st.systems[gi].secs.forEach((s) => (on ? st.SEL.add(s.key) : st.SEL.delete(s.key)));
+  flt.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-sys]");
+    if (b) { const gi = +b.dataset.sys; setSys(gi, b.getAttribute("aria-pressed") !== "true"); return changed(); }
+    if (e.target.closest("#fltx")) { const x = $("#fltx"), pn = $("#fltp"); pn.hidden = !pn.hidden; x.setAttribute("aria-expanded", String(!pn.hidden)); }
+  });
+  flt.addEventListener("change", (e) => { const t = e.target;
+    if (t.dataset.k) t.checked ? st.SEL.add(t.dataset.k) : st.SEL.delete(t.dataset.k);
+    else if (t.dataset.sysb != null) setSys(+t.dataset.sysb, t.checked);
+    changed(); });
+  document.addEventListener("click", (e) => { const b = e.target.closest("[data-all]"); if (!b || !(flt.contains(b) || $("#mrc").contains(b))) return;
+    p.sections.forEach((s) => (b.dataset.all === "1" ? st.SEL.add(s.key) : st.SEL.delete(s.key))); changed(); });
+  sync();
+}
