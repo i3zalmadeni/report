@@ -16,7 +16,7 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
 (async () => {
   const br = await chromium.launch({ executablePath: "/usr/bin/google-chrome", args: ["--no-sandbox"] });
   const open = async (user, w = 1280, h = 900) => {
-    const ctx = await br.newContext({ viewport: { width: w, height: h }, locale: "ar-SA", timezoneId: "Asia/Riyadh" });
+    const ctx = await br.newContext({ viewport: { width: w, height: h }, locale: "ar-SA", timezoneId: "Asia/Riyadh", isMobile: w < 600, hasTouch: w < 600 });
     await ctx.route(/cdn\.jsdelivr\.net/, (r) => r.fulfill({ contentType: "text/javascript", body: MOCK }));
     await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
     await ctx.addInitScript((u) => { u ? localStorage.setItem("preview_user", u) : localStorage.removeItem("preview_user"); window.print = () => { window.__printed = (window.__printed || 0) + 1; }; }, user);
@@ -72,21 +72,27 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
   // 3ب) شريط الأنظمة في الملف: تفاعل مباشر، ومشترك مع التقرير
   p = await open(U.viewer);
   await p.goto(`${BASE}/profile.html?k=student&id=${S1}`); await p.waitForSelector("#tl");
-  const chips = await p.$$eval(".mr-sch b", (l) => l.map((x) => x.textContent));
-  ok(chips.join(",") === "النواة الرقمية,انضباطي,قيمي", "أيقونة لكل نظام في أعلى الملف: " + chips.join(","));
-  ok(await p.$$eval(".mr-sch", (l) => l.every((b) => b.getAttribute("aria-pressed") === "true")), "الافتراضي: كل الأنظمة ظاهرة");
-  await p.click('.mr-sch:has-text("قيمي")');
+  const row = (n) => `#flt .mr-ar:has(.tx b:text-is("${n}"))`;
+  const rows = await p.$$eval("#flt .mr-ar .tx b", (l) => l.map((x) => x.textContent));
+  ok(rows.join(",") === "النواة الرقمية,انضباطي,قيمي", "صف لكل نظام في أعلى الملف: " + rows.join(","));
+  ok(await p.$$eval("#flt [data-sys]", (l) => l.every((b) => b.checked)) && await p.$$eval("#flt .mr-ar-b", (l) => l.every((x) => x.hidden)), "الافتراضي: كل الأنظمة ظاهرة، والألسنة مطوية");
+  await p.click(`${row("قيمي")} [data-acc]`);
+  ok(await p.isVisible(`${row("قيمي")} [data-k="reinforcements"]`) && (await p.getAttribute(`${row("قيمي")} [data-acc]`, "aria-expanded")) === "true", "اللسان يفتح أقسام النظام");
+  ok((await p.$$eval(`${row("قيمي")} .mr-ai em`, (l) => l.map((e) => e.textContent).join(","))).startsWith("1,2,3"), "أقسام النظام مرقّمة داخل لسانه");
+  await p.click(`${row("قيمي")} [data-acc]`); ok(await p.isHidden(`${row("قيمي")} .mr-ar-b`), "اللسان يُطوى");
+  await p.click(`${row("قيمي")} [data-sys]`);
   ok(!(await p.$("#s-reinforcements")) && (await p.$("#s-attendance")) && !(await p.$$eval("#tlist li b", (l) => l.map((x) => x.textContent))).includes("تعزيز"), "إخفاء قيمي يحذف أقسامه وأحداثه مباشرة");
-  ok((await p.getAttribute('.mr-sch:has-text("قيمي")', "aria-pressed")) === "false" && (await p.textContent(".mr-custom")).includes("عرض مخصص"), "حالة الأيقونة وتنبيه العرض المخصص");
-  await p.click("#fltx"); await p.click('#fltp [data-k="lateness"]');
-  ok(!(await p.$("#s-lateness")) && (await p.getAttribute('.mr-sch:has-text("انضباطي")', "aria-pressed")) === "mixed", "تخصيص قسم داخل النظام، والأيقونة تظهر اختياراً جزئياً");
+  ok((await p.textContent(`${row("قيمي")} .mr-ar-n`)) === "مخفي" && (await p.textContent(".mr-custom")).includes("عرض مخصص"), "شارة الصف وتنبيه العرض المخصص");
+  await p.click(`${row("انضباطي")} [data-acc]`); await p.click(`${row("انضباطي")} [data-k="lateness"]`);
+  ok(!(await p.$("#s-lateness")) && await p.$eval(`${row("انضباطي")} [data-sys]`, (b) => b.indeterminate) && (await p.textContent(`${row("انضباطي")} .mr-ar-n`)).includes("من"), "تخصيص قسم داخل النظام، والصف يظهر اختياراً جزئياً");
   await p.goto(`${BASE}/report.html?k=student&id=${S1}`); await p.waitForFunction(() => window.__ready === true);
   ok(!(await p.$eval('#pk [data-k="reinforcements"]', (b) => b.checked)) && !(await p.textContent("#doc")).includes("سجل القيم والتعزيز"), "التقرير يتبع اختيار العرض نفسه");
   await p.goBack(); await p.waitForSelector("#flt"); await p.click('#flt [data-all="0"]');
   ok((await p.textContent("#mrc")).includes("لم تختر أي نظام"), "إخفاء الكل يعرض رسالة واضحة");
   await p.click('#mrc [data-all="1"]');
   ok((await p.$("#s-reinforcements")) && (await p.$("#s-lateness")) && !(await p.$(".mr-custom")), "عرض كل الأنظمة من جديد");
-  await p.click("#fltx"); await p.click('.mr-sch:has-text("قيمي")'); await p.click("#fltx");
+  await p.click("#flt [data-acc-all]");
+  ok(await p.$$eval("#flt .mr-ar-b", (l) => l.every((x) => !x.hidden)) && (await p.textContent("#flt [data-acc-all]")) === "طي الكل", "فتح كل الألسنة دفعة واحدة");
   await p.screenshot({ path: `${OUT}/02b-filter-bar.png`, clip: { x: 0, y: 0, width: 1280, height: 1100 } });
   ok(p.errs.length === 0, "لا أخطاء JavaScript في شريط الأنظمة: " + p.errs.join(" | "));
 
@@ -154,20 +160,21 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
   await p.goto(`${BASE}/report.html?k=student&id=${S1}&pick=1`); await p.waitForFunction(() => window.__ready === true);
   ok(await p.isVisible("#pk"), "لوحة محتوى التقرير مفتوحة عند الدخول من زر التصدير");
   ok((await p.$$eval("#pk [data-k]", (l) => l.every((b) => b.checked))) && (await p.textContent("#pkc")).includes("الكل"), "الافتراضي: كل الأقسام محددة");
-  const qmIdx = await p.$$eval("#pk fieldset", (l) => l.findIndex((f) => f.querySelector("legend").textContent.includes("قيمي")));
-  ok((await p.$$eval(`#pk fieldset:nth-child(${qmIdx + 1}) .pk-i em`, (l) => l.map((e) => e.textContent).join(","))).startsWith("1,2,3"), "أقسام كل نظام مرقّمة 1، 2، 3");
-  await p.click(`#pk fieldset:nth-child(${qmIdx + 1}) legend input`);
+  const qm = '#pk .mr-ar:has(.tx b:text-is("قيمي"))';
+  ok((await p.$$eval(`${qm} .mr-ai em`, (l) => l.map((e) => e.textContent).join(","))).startsWith("1,2,3"), "أقسام كل نظام مرقّمة 1، 2، 3");
+  await p.click("#pk [data-acc-all]"); ok(await p.$$eval("#pk .mr-ar-b", (l) => l.every((x) => !x.hidden)), "فتح ألسنة الأنظمة في لوحة التقرير");
+  await p.click(`${qm} [data-sys]`);
   ok(!(await p.textContent("#doc")).includes("سجل القيم والتعزيز") && (await p.textContent("#doc")).includes("سجل الحضور والغياب"), "إلغاء نظام قيمي يحذف أقسامه من التقرير ويبقي غيره");
   ok((await p.textContent(".rp-custom")).includes("تقرير مخصص"), "التقرير المخصص يذكر ذلك صراحة");
   ok(!(await p.$$eval("#tlist, .rp-tl tbody tr", (l) => l.map((x) => x.textContent).join(" "))).includes("قيمي"), "السجل الزمني يتبع الاختيار");
   await p.click('#pk [data-k="lateness"]');
   ok(!(await p.textContent("#doc")).includes("سجل التأخر الصباحي"), "إلغاء قسم واحد");
-  ok(await p.$eval(`#pk fieldset:nth-child(${qmIdx + 1}) legend input`, (b) => !b.checked && !b.indeterminate), "مربع النظام يعكس حالة أقسامه");
+  ok(await p.$eval(`${qm} [data-sys]`, (b) => !b.checked && !b.indeterminate), "مربع النظام يعكس حالة أقسامه");
   await p.click('#pk [data-part="tl"]');
   ok(!(await p.textContent("#doc")).includes("السجل الزمني الموحد") || (await p.textContent(".rp-custom")).includes("دون السجل الزمني"), "إخفاء جزء السجل الزمني");
   await p.click('#pk [data-all="0"]'); ok(await p.$eval("#go", (b) => b.disabled), "إلغاء الكل يعطّل التصدير");
   await p.click('#pk [data-all="1"]'); ok(!(await p.$eval("#go", (b) => b.disabled)) && !(await p.$(".rp-custom")), "تحديد الكل يعيد التقرير الكامل");
-  await p.click('#pk [data-k="reinforcements"]'); await p.reload(); await p.waitForFunction(() => window.__ready === true);
+  await p.click('#pk [data-k="reinforcements"]'); await p.reload(); await p.waitForFunction(() => window.__ready === true); await p.click("#pk [data-acc-all]");
   ok(!(await p.$eval('#pk [data-k="reinforcements"]', (b) => b.checked)), "يُحفظ الاختيار على الجهاز للمرة القادمة");
   await p.screenshot({ path: `${OUT}/05-report-pick.png`, fullPage: false });
   await p.click("#go"); await p.waitForFunction(() => window.__printed === 1);
@@ -178,6 +185,29 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
   p = await open(U.admin);
   await p.goto(`${BASE}/report.html?k=student&id=${S1}&print=1`); await p.waitForFunction(() => window.__printed === 1, null, { timeout: 8000 });
   ok(true, "التصدير المباشر يفتح نافذة الطباعة بعد تجهيز التقرير");
+
+  // 7) الجوال (390 بكسل): لا تمرير أفقي في أي صفحة، والقائمة الرئيسية وألسنة الأنظمة تعمل باللمس
+  const T = "30000000-0000-0000-0000-000000000003";
+  for (const [u, pg, sel] of [[null, "index.html", ".tk-g"], [null, "about.html", "#ab-faq"], [null, "login.html", "form"], [U.admin, "search.html?k=student", "#q"],
+    [U.admin, `profile.html?k=student&id=${S1}`, "#tl"], [U.admin, `profile.html?k=staff&id=${T}`, "#tl"], [U.admin, `report.html?k=staff&id=${T}&pick=1`, "#doc .sheet"]]) {
+    p = await open(u, 390, 844); await p.goto(`${BASE}/${pg}`); await p.waitForSelector(sel); await p.waitForTimeout(300);
+    ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `[جوال] ${pg.split("?")[0]} بلا تمرير أفقي`);
+    if (pg === "index.html") {
+      ok(await p.isHidden("header nav"), "[جوال] القائمة الرئيسية مطوية افتراضياً"); await p.click(".navtoggle");
+      ok(await p.isVisible('header nav a[href="about.html"]') && (await p.getAttribute(".navtoggle", "aria-expanded")) === "true", "[جوال] زر القائمة يفتحها");
+      ok(await p.$$eval("header nav a", (l) => l.every((a) => a.getBoundingClientRect().height >= 44)), "[جوال] روابط القائمة بحجم لمس مناسب");
+      await p.screenshot({ path: `${OUT}/07-mobile-menu.png` });
+    }
+    if (pg.startsWith("profile.html?k=staff")) {
+      await p.tap('#flt .mr-ar:has(.tx b:text-is("التقويم الذاتي")) [data-acc]');
+      const box = await p.$eval('#flt .mr-ar:has(.tx b:text-is("التقويم الذاتي")) .mr-ar-b', (e) => { const r = e.getBoundingClientRect(); return !e.hidden && r.left >= 0 && r.right <= innerWidth; });
+      ok(box, "[جوال] لسان النظام يفتح داخل عرض الشاشة");
+      ok(await p.$$eval("#flt .mr-ar-t, #flt .mr-ar-ck", (l) => l.every((x) => x.getBoundingClientRect().height >= 44)), "[جوال] صفوف الأنظمة بحجم لمس مناسب");
+      await p.locator("#flt").screenshot({ path: `${OUT}/07-mobile-systems.png` });
+    }
+    if (pg.startsWith("report.html")) { await p.click('#pk .mr-ar:last-child [data-acc]'); ok(await p.isVisible("#pk .mr-ar:last-child [data-k]"), "[جوال] آخر نظام في لوحة التقرير قابل للوصول والفتح"); }
+    ok(p.errs.length === 0, `[جوال] لا أخطاء JavaScript في ${pg.split("?")[0]}: ` + p.errs.join(" | "));
+  }
 
   await br.close();
   console.log(fails ? `\n${fails} FAILED` : "\nALL E2E PASSED");

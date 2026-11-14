@@ -68,6 +68,7 @@ Object.assign(ICONS, {
   eyeoff: '<path d="M3 3l18 18M10.6 6.1A9.8 9.8 0 0 1 12 6c5 0 9 6 9 6a15 15 0 0 1-3 3.4M6.6 6.6C4.3 8.2 3 12 3 12s4 6 9 6a8.6 8.6 0 0 0 4.2-1.1"/>',
   alert: '<path d="M12 3l10 18H2zM12 10v5M12 18h.01"/>',
   layers: '<path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/>',
+  chev: '<path d="M6 9l6 6 6-6"/>',
 });
 const loading = (t) => `<p class="sub" aria-busy="true">${esc(t || "جارٍ التحميل…")}</p>`;
 
@@ -230,39 +231,58 @@ function selStore(kind, p) {
   st.save = () => { try { localStorage.setItem(LS, JSON.stringify({ off: p.sections.map((s) => s.key).filter((k) => !st.SEL.has(k)), parts: st.PART })); } catch (_) {} };
   return st;
 }
+// ===== قائمة الأنظمة القابلة للطي: صف لكل نظام (مربع إظهار النظام كله + لسان يفتح أقسامه). مشتركة بين الملف والتقرير =====
+const nRec = (n) => (!n ? "لا سجلات" : n === 1 ? "سجل واحد" : n === 2 ? "سجلان" : n <= 10 ? n + " سجلات" : n + " سجلاً");
+function sysAcc(systems) {
+  return `<div class="mr-acc">${systems.map((g, gi) => {
+    const recs = g.secs.reduce((a, s) => a + (s.status === "ok" ? s.rows.length : 0), 0);
+    return `<div class="mr-ar" data-ar="${gi}">
+      <div class="mr-ar-h"><label class="mr-ar-ck" title="إظهار أقسام ${esc(g.name)} كلها أو إخفاؤها"><input type="checkbox" data-sys="${gi}" aria-label="${esc(g.name)}: كل الأقسام"></label>
+        <button type="button" class="mr-ar-t" data-acc="${gi}" aria-expanded="false" aria-controls="ar-${gi}">
+          <span class="ic">${ico(SYSICO[g.name] || "grid")}</span>
+          <span class="tx"><b>${esc(g.name)}</b><small>${nSec(g.secs.length)} · ${nRec(recs)}</small></span>
+          <span class="mr-ar-n" data-arn="${gi}"></span><span class="chev">${ico("chev")}</span></button></div>
+      <div class="mr-ar-b" id="ar-${gi}" role="group" aria-label="أقسام ${esc(g.name)}" hidden>
+        ${g.secs.map((s, i) => `<label class="mr-ai${s.status === "ok" && !s.rows.length ? " empty" : ""}${s.status !== "ok" ? " na" : ""}"><input type="checkbox" data-k="${esc(s.key)}"><em>${i + 1}</em><span>${esc(s.title)}</span><small>${s.status === "ok" ? s.rows.length : esc(SST[s.status])}</small></label>`).join("")}
+      </div></div>`; }).join("")}</div>`;
+}
+// يحدّث حالة المربعات وشارة كل صف حسب الاختيار الحالي
+function accSync(root, systems, SEL) {
+  systems.forEach((g, gi) => {
+    const on = g.secs.filter((s) => SEL.has(s.key)).length, c = $(`[data-sys="${gi}"]`, root), row = $(`[data-ar="${gi}"]`, root);
+    c.checked = on === g.secs.length; c.indeterminate = on > 0 && on < g.secs.length;
+    row.classList.toggle("on", on > 0); row.classList.toggle("part", on > 0 && on < g.secs.length);
+    $(`[data-arn="${gi}"]`, root).textContent = on === g.secs.length ? "الكل" : on ? `${on} من ${g.secs.length}` : "مخفي";
+  });
+  $$("[data-k]", root).forEach((b) => (b.checked = SEL.has(b.dataset.k)));
+}
+// فتح الصف وطيّه (صف واحد أو الكل)
+function accBind(root) {
+  const set = (b, o) => { b.setAttribute("aria-expanded", String(o)); $("#" + b.getAttribute("aria-controls"), root).hidden = !o; };
+  root.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-acc]"); if (b && root.contains(b)) return set(b, b.getAttribute("aria-expanded") !== "true");
+    const x = e.target.closest("[data-acc-all]"); if (!x || !root.contains(x)) return;
+    const bs = $$("[data-acc]", root), o = !bs.every((b) => b.getAttribute("aria-expanded") === "true");
+    bs.forEach((b) => set(b, o)); x.textContent = o ? "طي الكل" : "فتح الكل";
+  });
+}
 function filterBar(st) {
-  const cnt = (s) => (s.status === "ok" ? `(${s.rows.length})` : SST[s.status]);
-  return `<section class="card mr-flt" id="flt" aria-label="الأنظمة المعروضة">
-    <div class="mr-flt-h"><b>${ico("layers")}الأنظمة المعروضة</b><span class="sub sm" id="fltn"></span><span class="mr-gap"></span>
-      <button type="button" class="btn sec sm" data-all="1">الكل</button><button type="button" class="btn sec sm" data-all="0">إخفاء الكل</button>
-      <button type="button" class="btn sec sm" id="fltx" aria-expanded="false" aria-controls="fltp">${ico("list")}تخصيص الأقسام</button></div>
-    <div class="mr-sysb" role="group" aria-label="اختيار الأنظمة">${st.systems.map((g, gi) => `<button type="button" class="mr-sch" data-sys="${gi}" aria-pressed="true" title="${esc(g.name)}: ${nSec(g.secs.length)}">
-      <span class="ic">${ico(SYSICO[g.name] || "grid")}</span><span class="tx"><b>${esc(g.name)}</b><small>${g.secs.reduce((a, s) => a + (s.status === "ok" ? s.rows.length : 0), 0)} سجلاً</small></span><i class="ck" aria-hidden="true">${ico("check")}</i></button>`).join("")}</div>
-    <div class="mr-fltp" id="fltp" hidden>${st.systems.map((g, gi) => `<fieldset class="pk-sys"><legend><label><input type="checkbox" data-sysb="${gi}"> ${esc(g.name)}</label><small>${nSec(g.secs.length)}</small></legend>
-      ${g.secs.map((s, i) => `<label class="pk-i ${s.status === "ok" && !s.rows.length ? "empty" : ""}"><input type="checkbox" data-k="${esc(s.key)}"><em>${i + 1}</em><span>${esc(s.title)}</span><small>${esc(cnt(s))}</small></label>`).join("")}</fieldset>`).join("")}</div>
+  return `<section class="card mr-flt" id="flt" aria-label="الأنظمة والأقسام المعروضة">
+    <div class="mr-flt-h"><div class="mr-flt-t"><b>${ico("layers")}الأنظمة والأقسام المعروضة</b><span class="sub sm" id="fltn"></span></div>
+      <div class="mr-flt-a"><button type="button" class="btn sec sm" data-all="1">إظهار الكل</button><button type="button" class="btn sec sm" data-all="0">إخفاء الكل</button>
+      <button type="button" class="btn sec sm" data-acc-all="1">فتح الكل</button></div></div>
+    <p class="sub sm mr-flt-tip">افتح لسان النظام لاختيار أقسامه، أو استخدم المربع بجواره لإظهار النظام كله أو إخفائه. الاختيار يسري على التقرير أيضاً.</p>
+    ${sysAcc(st.systems)}
   </section>`;
 }
 function bindFilter(st, p, render) {
   const flt = $("#flt"), all = p.sections.length;
-  const sync = () => {
-    st.systems.forEach((g, gi) => {
-      const on = g.secs.filter((s) => st.SEL.has(s.key)).length, b = $(`[data-sys="${gi}"]`, flt), c = $(`[data-sysb="${gi}"]`, flt);
-      b.setAttribute("aria-pressed", on === g.secs.length ? "true" : on ? "mixed" : "false");
-      c.checked = on === g.secs.length; c.indeterminate = on > 0 && on < g.secs.length;
-    });
-    $$("[data-k]", flt).forEach((b) => (b.checked = st.SEL.has(b.dataset.k)));
-    $("#fltn").textContent = st.SEL.size === all ? `كل الأقسام (${all})` : `${st.SEL.size} من ${all} قسماً`;
-  };
+  const sync = () => { accSync(flt, st.systems, st.SEL); $("#fltn").textContent = st.SEL.size === all ? `كل الأقسام (${all})` : `${st.SEL.size} من ${all} قسماً`; };
   const changed = () => { st.save(); sync(); render(); };
-  const setSys = (gi, on) => st.systems[gi].secs.forEach((s) => (on ? st.SEL.add(s.key) : st.SEL.delete(s.key)));
-  flt.addEventListener("click", (e) => {
-    const b = e.target.closest("[data-sys]");
-    if (b) { const gi = +b.dataset.sys; setSys(gi, b.getAttribute("aria-pressed") !== "true"); return changed(); }
-    if (e.target.closest("#fltx")) { const x = $("#fltx"), pn = $("#fltp"); pn.hidden = !pn.hidden; x.setAttribute("aria-expanded", String(!pn.hidden)); }
-  });
+  accBind(flt);
   flt.addEventListener("change", (e) => { const t = e.target;
     if (t.dataset.k) t.checked ? st.SEL.add(t.dataset.k) : st.SEL.delete(t.dataset.k);
-    else if (t.dataset.sysb != null) setSys(+t.dataset.sysb, t.checked);
+    else if (t.dataset.sys != null) st.systems[+t.dataset.sys].secs.forEach((s) => (t.checked ? st.SEL.add(s.key) : st.SEL.delete(s.key)));
     changed(); });
   document.addEventListener("click", (e) => { const b = e.target.closest("[data-all]"); if (!b || !(flt.contains(b) || $("#mrc").contains(b))) return;
     p.sections.forEach((s) => (b.dataset.all === "1" ? st.SEL.add(s.key) : st.SEL.delete(s.key))); changed(); });

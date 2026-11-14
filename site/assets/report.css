@@ -90,12 +90,11 @@ bdi,.nw{unicode-bidi:isolate;white-space:nowrap}
 .pk-note{color:var(--muted);font-size:.78rem}
 .rp-pick label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
 .rp-pick input{width:17px;height:17px;accent-color:var(--brand);margin:0}
-.pk-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
-.pk-sys{margin:0;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 10px 10px;min-width:0}
-.pk-sys legend{display:flex;align-items:center;gap:8px;padding:0 4px;font-weight:800;color:var(--brand)} .pk-sys legend small{color:var(--muted);font-weight:500;font-size:.75rem}
-.pk-i{display:flex!important;width:100%;padding:4px 2px;font-size:.86rem;border-radius:6px}
-.pk-i:hover{background:var(--soft)}
-.pk-i em{font-style:normal;min-width:18px;height:18px;border-radius:50%;background:var(--soft);color:var(--brand);font-size:.72rem;font-weight:800;display:grid;place-items:center}
-.pk-i span{flex:1} .pk-i small{color:var(--muted);font-size:.74rem;white-space:nowrap}
-.pk-i.empty span{color:var(--muted)}
+.pk-g{display:block}
 .rp-custom{background:#fff8e8;color:#7a5410}
+
+@media screen and (max-width:640px){.rp-bar-in{gap:8px;padding:8px}.rp-bar-in>b{flex-basis:100%}.rp-bar .sp{display:none}.rp-bar-in .rb{flex:1 1 auto;text-align:center}.rp-pick{margin:0 8px 10px;padding:10px}.pk-h .rb{flex:1 1 auto}.rp-tip{padding:0 10px 10px}}
+/* لوحة المحتوى داخل الشريط الملتصق: لا تتجاوز ارتفاع الشاشة، وعلى الجوال يصبح الشريط عادياً فتُمرَّر اللوحة مع الصفحة */
+@media screen{.rp-pick:not([hidden]){max-height:calc(100vh - 150px);overflow:auto;overscroll-behavior:contain}}
+@media screen and (max-width:640px){.rp-bar{position:static}.rp-pick:not([hidden]){max-height:none;overflow:visible}}
+@media screen and (max-width:640px){.rp-doc{overflow-x:hidden}.sheet{padding:5mm}.rp-t{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}}

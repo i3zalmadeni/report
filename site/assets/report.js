@@ -33,16 +33,15 @@ PAGES.report = () => boot("report.html", async (root) => {
   const cnt = (s) => (s.status === "ok" ? `(${s.rows.length})` : SST[s.status]);
   const pk = $("#pk");
   pk.innerHTML = `<div class="pk-h"><b>اختر محتوى التقرير</b><span id="pkn" class="pk-n"></span><span class="sp"></span>
-      <button type="button" class="rb sec sm" data-all="1">تحديد الكل</button><button type="button" class="rb sec sm" data-all="0">إلغاء الكل</button></div>
+      <button type="button" class="rb sec sm" data-all="1">تحديد الكل</button><button type="button" class="rb sec sm" data-all="0">إلغاء الكل</button><button type="button" class="rb sec sm" data-acc-all="1">فتح الكل</button></div>
     <div class="pk-parts"><b>أجزاء التقرير:</b>${[["sum", "الملخص العام"], ["det", "الأقسام التفصيلية"], ["tl", "السجل الزمني الموحد"]].map(([k, t]) => `<label><input type="checkbox" data-part="${k}"${PART[k] ? " checked" : ""}> ${t}</label>`).join("")}<span class="pk-note">بطاقة التعريف تظهر دائماً.</span></div>
-    <div class="pk-g">${systems.map((g, gi) => `<fieldset class="pk-sys"><legend><label><input type="checkbox" data-sys="${gi}"> ${esc(g.name)}</label><small>${((n) => (n === 1 ? "قسم واحد" : n === 2 ? "قسمان" : n <= 10 ? n + " أقسام" : n + " قسماً"))(g.secs.length)}</small></legend>
-      ${g.secs.map((s, i) => `<label class="pk-i ${s.status === "ok" && !s.rows.length ? "empty" : ""}"><input type="checkbox" data-k="${esc(s.key)}"${SEL.has(s.key) ? " checked" : ""}><em>${i + 1}</em><span>${esc(s.title)}</span><small>${esc(cnt(s))}</small></label>`).join("")}</fieldset>`).join("")}</div>`;
+    <div class="pk-g">${sysAcc(systems)}</div>`;
   const syncBoxes = () => {
-    systems.forEach((g, gi) => { const b = $(`[data-sys="${gi}"]`, pk), on = g.secs.filter((s) => SEL.has(s.key)).length; b.checked = on === g.secs.length; b.indeterminate = on > 0 && on < g.secs.length; });
-    $$("[data-k]", pk).forEach((b) => (b.checked = SEL.has(b.dataset.k)));
+    accSync(pk, systems, SEL);
     const n = SEL.size, all = p.sections.length; $("#pkn").textContent = `${n} من ${all} قسماً`; $("#pkc").textContent = n === all ? "(الكل)" : `(${n}/${all})`;
   };
   const changed = () => { save(); syncBoxes(); draw(); };
+  accBind(pk);
   pk.addEventListener("change", (e) => { const t = e.target;
     if (t.dataset.k) t.checked ? SEL.add(t.dataset.k) : SEL.delete(t.dataset.k);
     else if (t.dataset.sys != null) systems[+t.dataset.sys].secs.forEach((s) => (t.checked ? SEL.add(s.key) : SEL.delete(s.key)));

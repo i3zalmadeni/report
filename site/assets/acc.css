@@ -1,0 +1,47 @@
+/* مرآة: قائمة الأنظمة القابلة للطي (صف لكل نظام ولسان لأقسامه). مشتركة بين صفحة الملف ولوحة محتوى التقرير. */
+.mr-acc{display:grid;gap:8px}
+.mr-ar{background:var(--surface,#fff);border:1.5px solid var(--line);border-radius:14px;overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.mr-ar.on{border-color:color-mix(in srgb,var(--brand) 40%,var(--line))}
+.mr-ar:has(.mr-ar-t[aria-expanded="true"]){box-shadow:0 6px 18px rgba(13,43,69,.08)}
+.mr-ar-h{display:flex;align-items:stretch}
+.mr-acc .mr-ar-ck{display:grid;place-items:center;width:54px;flex:none;margin:0;cursor:pointer;border-inline-end:1px solid var(--line);transition:background .15s}
+.mr-acc .mr-ar-ck:hover{background:var(--soft)}
+.mr-acc .mr-ar-ck input{width:21px;height:21px;margin:0;min-height:0;accent-color:var(--brand);cursor:pointer}
+.mr-ar-t{flex:1;min-width:0;display:flex;align-items:center;gap:12px;border:0;background:none;font:inherit;color:var(--ink);text-align:start;padding:8px 14px;min-height:60px;cursor:pointer;transition:background .15s}
+.mr-ar-t:hover{background:var(--soft)}
+.mr-ar-t:focus-visible{outline:3px solid color-mix(in srgb,var(--brand) 35%,transparent);outline-offset:-3px}
+.mr-ar-t .ic{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;flex:none;background:var(--soft);color:var(--muted);transition:all .15s}
+.mr-ar-t .ic .ico{width:20px;height:20px;margin:0}
+.mr-ar.on .mr-ar-t .ic{background:var(--grad,linear-gradient(135deg,#18a4ab,#0c6f82));color:#fff}
+.mr-ar-t .tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.35}
+.mr-ar-t .tx b{font-size:.98rem;font-weight:800} .mr-ar-t .tx small{color:var(--muted);font-size:.78rem}
+.mr-ar:not(.on) .mr-ar-t .tx b{color:var(--muted)}
+.mr-ar-n{flex:none;font-size:.76rem;font-weight:700;border-radius:99px;padding:3px 10px;white-space:nowrap;background:var(--soft);color:var(--muted)}
+.mr-ar.on .mr-ar-n{background:var(--brandsoft,#e1f2f4);color:var(--brand)}
+.mr-ar.part .mr-ar-n{background:#fff4dc;color:#8a5a00}
+.mr-ar-t .chev{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;flex:none;color:var(--brand);background:var(--soft);transition:transform .2s}
+.mr-ar-t .chev .ico{width:18px;height:18px;margin:0}
+.mr-ar-t[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.mr-ar-b{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:6px;padding:10px;border-top:1px solid var(--line);background:color-mix(in srgb,var(--soft) 55%,transparent);animation:mr-open .18s ease-out}
+.mr-ar-b[hidden]{display:none}
+@keyframes mr-open{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.mr-acc .mr-ai{display:flex;align-items:center;gap:9px;width:100%;margin:0;padding:7px 10px;min-height:44px;border-radius:10px;background:var(--surface,#fff);border:1px solid var(--line);transition:border-color .15s;font-size:.9rem;font-weight:500;cursor:pointer;color:var(--ink)}
+.mr-acc .mr-ai:hover{border-color:var(--brand)}
+.mr-acc .mr-ai:has(input:not(:checked)){background:transparent;border-style:dashed}
+.mr-acc .mr-ai input{width:18px;height:18px;margin:0;min-height:0;flex:none;accent-color:var(--brand)}
+.mr-ai em{font-style:normal;flex:none;min-width:20px;height:20px;border-radius:50%;background:var(--soft);color:var(--brand);font-size:.72rem;font-weight:800;display:grid;place-items:center}
+.mr-ai span{flex:1;min-width:0;line-height:1.45}
+.mr-ai small{flex:none;min-width:26px;text-align:center;font-size:.76rem;font-weight:700;color:var(--brand);background:var(--brandsoft,#e1f2f4);border-radius:99px;padding:1px 8px;font-variant-numeric:tabular-nums}
+.mr-ai.empty span,.mr-ai.empty small{color:var(--muted);font-weight:500}.mr-ai.empty small{background:var(--soft)}
+.mr-ai.na small{color:#b8434f;background:#fdecee;font-weight:500}
+@media (max-width:640px){
+  .mr-acc .mr-ar-ck{width:48px}
+  .mr-ar-t{gap:9px;padding:8px 10px;min-height:58px}
+  .mr-ar-t .ic{width:34px;height:34px}
+  .mr-ar-t .chev{width:28px;height:28px}
+  .mr-ar-b{grid-template-columns:1fr;padding:8px}
+  .mr-acc .mr-ai{min-height:46px}
+}
+@media (prefers-reduced-motion:reduce){.mr-ar-b{animation:none}.mr-ar-t .chev{transition:none}}
+@media print{.mr-flt{display:none!important}}
+.mr-acc .ico{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle}

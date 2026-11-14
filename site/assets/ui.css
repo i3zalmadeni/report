@@ -474,3 +474,9 @@ main.hubmain{padding-top:18px}
 .fd{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}.fd:last-child{border-bottom:0;padding-bottom:0}
 .fd-ic{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:var(--brandsoft);color:var(--brand2);flex:none}.fd-ic.b{background:var(--acc2soft);color:var(--acc2ink)}
 .fd-ic .ico{width:17px;height:17px}.fd small{display:block;color:var(--muted)}.fd>div{min-width:0}
+/* قائمة الجوال في الموقع العام: الأيقونة والنص في سطر واحد، وأيقونة «الاستعلام» بلون النص لا بالأبيض */
+@media (max-width:860px){
+  .pubsite header nav a,.pubsite header nav a.only-m{display:flex!important;align-items:center;gap:10px;min-height:48px}
+  .pubsite header nav a .ico{margin:0}
+  .pubsite header nav a[data-login]:not(.on) .ico{stroke:currentColor}
+}
