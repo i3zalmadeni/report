@@ -2,7 +2,7 @@
 \set ON_ERROR_STOP 1
 select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-000000000003', false);
 set role authenticated;
-do $$ begin assert public.mr_staff_extra('30000000-0000-0000-0000-000000000003')->>'error' = 'forbidden', 'teacher forbidden'; end $$;
+do $$ begin assert public.mr_staff_extra('30000000-0000-0000-0000-000000000002')->>'error' = 'forbidden', 'teacher forbidden on another file'; end $$;
 reset role;
 select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-000000000002', false);
 set role authenticated;

@@ -13,7 +13,7 @@ PAGES.report = () => boot("report.html", async (root, who) => {
     <p class="rp-tip">في نافذة الطباعة اختر «حفظ بتنسيق PDF»، والمقاس A4، والاتجاه عمودي، والهوامش «الافتراضية»، وألغِ خيار «الرؤوس والتذييلات» الخاص بالمتصفح. أفضل نتيجة من متصفح Chrome أو Edge.</p></div>
     <div id="doc" class="rp-doc"></div>`;
   if (!/^[0-9a-f-]{36}$/i.test(id)) { $("#rpst").textContent = "رابط غير صحيح."; return; }
-  if (!who["can_" + kind]) { $("#rpst").textContent = KIND_DENIED[kind]; $("#rpst").classList.add("bad"); return; }
+  if (!who["can_" + kind] && !(kind === "staff" && id === who.staff_id)) { $("#rpst").textContent = KIND_DENIED[kind]; $("#rpst").classList.add("bad"); return; }
   let p;
   try { p = await rpc(kind === "student" ? "mr_student_profile" : "mr_staff_profile", { p_id: id }); if (kind === "staff") await enrichStaff(p); }
   catch (e) { $("#rpst").textContent = mapErr(e); $("#rpst").classList.add("bad"); return; }

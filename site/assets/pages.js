@@ -68,7 +68,8 @@ const secNotice = (s) => s.status === "restricted" ? `<p class="mr-note">${ico("
 
 PAGES.profile = () => boot("profile.html", async (main, who) => {
   const kind = qs.get("k") === "staff" ? "staff" : "student", id = qs.get("id") || "";
-  if (!who["can_" + kind]) { main.innerHTML = `<div class="card"><p class="err">${esc(KIND_DENIED[kind])}</p><a class="btn sec" href="search.html">العودة إلى البحث</a></div>`; return; }
+  const own = kind === "staff" && id === who.staff_id;
+  if (!who["can_" + kind] && !own) { main.innerHTML = `<div class="card"><p class="err">${esc(KIND_DENIED[kind])}</p><a class="btn sec" href="${esc(myFile(who))}">ملفي الشامل</a></div>`; return; }
   if (!/^[0-9a-f-]{36}$/i.test(id)) { main.innerHTML = `<div class="card"><p class="err">رابط غير صحيح.</p><a class="btn sec" href="search.html">العودة إلى البحث</a></div>`; return; }
   main.innerHTML = loading("جارٍ جمع السجلات من الأنظمة…");
   const p = await rpc(kind === "student" ? "mr_student_profile" : "mr_staff_profile", { p_id: id });
@@ -76,7 +77,8 @@ PAGES.profile = () => boot("profile.html", async (main, who) => {
   const P = p.person;
   const st = selStore(kind, p);
   document.title = P.name + " – الملف الشامل – مرآة";
-  $(".pagebar h1").textContent = "ملف " + kindLabel(kind) + " الشامل";
+  $(".pagebar h1").textContent = own ? "ملفي الشامل" : "ملف " + kindLabel(kind) + " الشامل";
+  if (own) $(".pb-d").textContent = "سجلك كاملاً من أنظمة النواة الرقمية، وتستطيع استخراجه تقريراً";
   const pro = P.pro;
   main.innerHTML = `
   <section class="card mr-id" id="sum">
@@ -133,7 +135,7 @@ PAGES.profile = () => boot("profile.html", async (main, who) => {
   render();
 }, { title: "الملف الشامل", desc: "نافذة موحدة على السجلات الموجودة في الأنظمة" });
 
-// ===== المصرح لهم: من يطّلع على الملفات ويستخرج تقاريرها (مدير النواة ومدير المدرسة ومنسق مرآة) =====
+// ===== الصلاحيات: من يطّلع على الملفات ويستخرج تقاريرها (مدير النواة ومدير المدرسة ومنسق مرآة) =====
 // كل مربع يُحفظ فور تغييره في صلاحيات النواة، ويُسجَّل في سجل عمليات النواة.
 PAGES.perms = () => boot("perms.html", async (main) => {
   main.innerHTML = loading("جارٍ تحميل منسوبي المدرسة…");
@@ -143,16 +145,16 @@ PAGES.perms = () => boot("perms.html", async (main) => {
     ["coord", "منسق مرآة", "key", "يدير هذه القائمة ويطّلع على النوعين. يعيّنه مدير النواة ومدير المدرسة فقط"]];
   let filter = "", show = "all";
   main.innerHTML = `<section class="card mr-pm-h">
-      <div class="mr-pm-in"><span class="mr-av" aria-hidden="true">${ico("key")}</span><div><h2>المصرح لهم بالاطلاع واستخراج التقارير</h2>
+      <div class="mr-pm-in"><span class="mr-av" aria-hidden="true">${ico("key")}</span><div><h2>صلاحيات الاطلاع واستخراج التقارير</h2>
       <p class="sub">ضع علامة في الصلاحية المطلوبة لكل منسوب: «تقرير المتعلم» أو «تقرير المعلم» أو كليهما. يُحفظ التغيير فوراً، ويُسجَّل في سجل عمليات النواة الرقمية.</p></div></div>
       <ul class="mr-pm-legend">${COLS.map(([, n, i, t]) => `<li>${ico(i)}<b>${n}</b><span>${esc(t)}</span></li>`).join("")}</ul>
       <div class="mr-kpis mr-pm-k" id="pmk"></div>
     </section>
     <section class="card mr-pm">
       <div class="mr-pm-bar"><div class="mr-search mr-search-c">${ico("search")}<input type="search" id="pmq" placeholder="ابحث باسم المنسوب أو مسماه" aria-label="بحث في المنسوبين"></div>
-        <div class="mr-seg" role="radiogroup" aria-label="عرض">${[["all", "الكل"], ["on", "المصرح لهم"], ["off", "غير المصرح لهم"]].map(([k, n]) => `<button type="button" role="radio" data-show="${k}">${n}</button>`).join("")}</div></div>
+        <div class="mr-seg" role="radiogroup" aria-label="عرض">${[["all", "الكل"], ["on", "لهم صلاحية"], ["off", "بلا صلاحية"]].map(([k, n]) => `<button type="button" role="radio" data-show="${k}">${n}</button>`).join("")}</div></div>
       <div class="tw"><table class="mr-t mr-pm-t"><thead><tr><th>المنسوب</th>${COLS.map(([k, n]) => `<th class="c">${n}</th>`).join("")}<th class="st"><span class="vh">حالة الحفظ</span></th></tr></thead><tbody id="pmb"></tbody></table></div>
-      <p class="sub sm mt">مدير النواة الرقمية ومدير المدرسة يطّلعان على كل الملفات بحكم موقعهما. المنسوب الذي لا يملك حساب دخول تسري صلاحيته متى أُنشئ حسابه في النواة.</p>
+      <p class="sub sm mt">كل منسوب يطّلع على ملفه الشامل ويستخرج تقريره من «ملفي» دون صلاحية، ولا يصل إلى ملفات غيره. مدير النواة الرقمية ومدير المدرسة يطّلعان على كل الملفات بحكم موقعهما. المنسوب الذي لا يملك حساب دخول تسري صلاحيته متى أُنشئ حسابه في النواة.</p>
     </section>`;
   const can = (r, k) => !r.leader && (k !== "coord" || d.is_admin);
   const row = (r) => `<tr data-id="${r.id}" class="${r.leader ? "lead" : ""}">
@@ -184,4 +186,62 @@ PAGES.perms = () => boot("perms.html", async (main) => {
     } catch (err) { draw(); mark(r.id, `<span class="mr-sv bad">${esc(mapErr(err))}</span>`); }
   });
   draw();
-}, { title: "المصرح لهم", desc: "من يطّلع على الملفات الشاملة ويستخرج تقارير المتعلمين والمعلمين", manage: true });
+}, { title: "الصلاحيات", desc: "من يطّلع على الملفات الشاملة ويستخرج تقارير المتعلمين والمعلمين", manage: true });
+
+// ===== سجلات المشاهدة: من اطّلع على أي ملف، ومتى، ومن صدّر تقريراً أو رُفض وصوله، وتعديلات الصلاحيات =====
+// قراءة فقط من سجل عمليات النواة (audit_logs). لمدير النواة ومدير المدرسة ومنسق مرآة.
+const ACT = { VIEW: ["اطلاع على ملف", "info", "eye"], EXPORT: ["تصدير تقرير", "ok", "print"], DENIED: ["رفض وصول", "bad", "lock"], PERMISSION: ["تعديل صلاحيات", "warn", "key"] };
+const PERM_AR = { "mirat:view_student": "تقرير المتعلم", "mirat:view_staff": "تقرير المعلم", "mirat:approve": "منسق مرآة", "mirat:view": "اطلاع (سابقة)" };
+const permTxt = (a) => (a && a.length ? a.map((c) => PERM_AR[c] || c).join("، ") : "لا شيء");
+PAGES.log = () => boot("log.html", async (main) => {
+  const F = { p_actor: qs.get("u") || null, p_action: null, p_kind: null, p_q: null, p_from: null, p_to: null };
+  let rows = [], total = 0, users = null;
+  main.innerHTML = `<section class="card mr-lg-f">
+      <div class="mr-pm-in"><span class="mr-av" aria-hidden="true">${ico("eye")}</span><div><h2>سجلات المشاهدة</h2>
+      <p class="sub">كل اطلاع على ملف شامل، وكل تقرير صُدّر، وكل محاولة وصول مرفوضة، وكل تعديل على الصلاحيات، باسم المستخدم واسم صاحب الملف ووقت العملية. السجل يُكتب تلقائياً في سجل عمليات النواة الرقمية، ولا يمكن تعديله أو حذفه من هنا.</p></div></div>
+      <div class="mr-lg-g">
+        <label>المستخدم<select id="fu"><option value="">كل المستخدمين</option></select></label>
+        <label>العملية<select id="fa"><option value="">كل العمليات</option>${Object.entries(ACT).map(([k, [n]]) => `<option value="${k}">${n}</option>`).join("")}</select></label>
+        <label>نوع الملف<select id="fk"><option value="">الكل</option><option value="student">ملف متعلم</option><option value="staff">ملف معلم</option><option value="permissions">الصلاحيات</option></select></label>
+        <label>من تاريخ<input type="date" id="ff"></label><label>إلى تاريخ<input type="date" id="ft"></label>
+        <label class="mr-lg-q">بحث بالاسم<div class="mr-search mr-search-c">${ico("search")}<input type="search" id="fq" placeholder="اسم المستخدم أو صاحب الملف"></div></label>
+      </div>
+      <div class="mr-kpis mr-pm-k" id="lk"></div>
+    </section>
+    <section class="card mr-lg"><h3 class="mr-h">${ico("users")}حسب المستخدم <small id="lun"></small></h3><div class="tw"><table class="mr-t"><thead><tr><th>المستخدم</th><th>ملفات مختلفة</th><th>اطلاع</th><th>تصدير</th><th>رفض وصول</th><th>آخر نشاط</th></tr></thead><tbody id="lu"></tbody></table></div></section>
+    <section class="card mr-lg"><h3 class="mr-h">${ico("clock")}سجل العمليات <small id="ln"></small></h3>
+      <div class="tw"><table class="mr-t mr-lg-t"><thead><tr><th>الوقت</th><th>المستخدم</th><th>العملية</th><th>الملف</th><th>التفاصيل</th></tr></thead><tbody id="lb"></tbody></table></div>
+      <div class="acts mt"><button class="btn sec" id="more" type="button" style="display:none">عرض المزيد</button></div></section>`;
+  const target = (r) => {
+    if (r.kind === "permissions") return `<b>${esc(r.target || "—")}</b><small>${esc(r.target_info || "")} · الصلاحيات</small>`;
+    const k = r.kind === "student" ? "student" : "staff", nm = r.target ? `<a href="profile.html?k=${k}&id=${encodeURIComponent(r.target_id)}">${esc(r.target)}</a>` : `<span class="sub">سجل غير موجود</span>`;
+    return `<b>${nm}</b><small>${k === "student" ? "ملف متعلم" : "ملف معلم"}${r.target_info ? " · " + esc(r.target_info) : ""}</small>`;
+  };
+  const detail = (r) => r.action === "PERMISSION" ? `من: ${esc(permTxt(r.old))}<br>إلى: <b>${esc(permTxt(r.new))}</b>`
+    : r.self ? "ملفه الشخصي" : r.action === "DENIED" ? (r.op === "export" ? "محاولة تصدير دون صلاحية" : r.op === "perm_set" ? "محاولة تعديل صلاحيات" : "محاولة اطلاع دون صلاحية") : "";
+  const row = (r) => `<tr><td>${fmtD(r.at)}</td><td><b>${esc(r.actor)}</b><small>${esc(r.actor_job || "")}</small></td>
+    <td><span class="badge ${ACT[r.action]?.[1] || "info"}">${esc(ACT[r.action]?.[0] || r.action)}</span></td><td>${target(r)}</td><td class="sm-t">${detail(r)}</td></tr>`;
+  const load = async (append) => {
+    const off = append ? rows.length : 0;
+    if (!append) $("#lb").innerHTML = `<tr><td colspan="5">${loading("جارٍ تحميل السجل…")}</td></tr>`;
+    const d = await rpc("mr_audit_list", { ...F, p_limit: 50, p_offset: off });
+    rows = append ? rows.concat(d.rows) : d.rows; total = d.total;
+    if (!users) { users = d.users; $("#fu").insertAdjacentHTML("beforeend", users.map((u) => `<option value="${u.id}">${esc(u.name)}</option>`).join("")); if (F.p_actor) $("#fu").value = F.p_actor; }
+    const sum = (k) => d.by_user.reduce((a, u) => a + (+u[k] || 0), 0);
+    $("#lk").innerHTML = [["عملية مسجلة", total, "main"], ["اطلاع على ملف", sum("views"), "info"], ["تقرير مصدّر", sum("exports"), "ok"], ["رفض وصول", sum("denied"), "bad"], ["مستخدماً", d.by_user.length, "info"]]
+      .map(([t, v, c]) => `<div class="mr-kpi ${c}"><b>${v}</b><span>${t}</span></div>`).join("");
+    $("#lun").textContent = d.by_user.length ? `${d.by_user.length} مستخدماً` : "";
+    $("#lu").innerHTML = d.by_user.length ? d.by_user.map((u) => `<tr><td><button type="button" class="mr-lnk" data-u="${esc(u.id || "")}"><b>${esc(u.name)}</b></button><small>${esc(u.job || "")}</small></td><td>${u.files}</td><td>${u.views}</td><td>${u.exports}</td><td>${u.denied}</td><td>${fmtD(u.last)}</td></tr>`).join("")
+      : `<tr><td colspan="6" class="sub">لا توجد عمليات مطابقة.</td></tr>`;
+    $("#ln").textContent = total ? `${rows.length} من ${total}، من الأحدث إلى الأقدم` : "";
+    $("#lb").innerHTML = rows.length ? rows.map(row).join("") : `<tr><td colspan="5" class="sub">لا توجد عمليات مطابقة.</td></tr>`;
+    $("#more").style.display = rows.length >= total ? "none" : "";
+  };
+  const go = () => load(false).catch((e) => ($("#lb").innerHTML = `<tr><td colspan="5" class="err">${esc(mapErr(e))}</td></tr>`));
+  const bindF = (sel, key, ev = "change") => $(sel).addEventListener(ev, (e) => { F[key] = e.target.value || null; go(); });
+  bindF("#fu", "p_actor"); bindF("#fa", "p_action"); bindF("#fk", "p_kind"); bindF("#ff", "p_from"); bindF("#ft", "p_to");
+  let t = 0; $("#fq").addEventListener("input", (e) => { clearTimeout(t); t = setTimeout(() => { F.p_q = e.target.value.trim() || null; go(); }, 300); });
+  $("#lu").addEventListener("click", (e) => { const b = e.target.closest("[data-u]"); if (!b || !b.dataset.u) return; F.p_actor = b.dataset.u; $("#fu").value = b.dataset.u; go(); window.scrollTo({ top: 0, behavior: "smooth" }); });
+  $("#more").onclick = () => load(true);
+  await load(false);
+}, { title: "سجلات المشاهدة", desc: "من اطّلع على أي ملف، ومتى، ومن صدّر التقارير", manage: true });

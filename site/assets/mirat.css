@@ -171,3 +171,32 @@ nav.mr-jump{flex-direction:row;flex-wrap:nowrap;justify-content:flex-start;flex:
   .mr-pm-t td.c{width:auto;display:flex;flex-direction:column;align-items:center;font-size:.76rem;color:var(--ink2)}
   .mr-pm-t td.c::before{content:attr(data-l);font-weight:700}
 }
+
+/* ===== صورة المستخدم في الترويسة ===== */
+.duser{display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:inherit;min-height:44px}
+.dav{width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;overflow:hidden;background:rgba(255,255,255,.16);color:#fff;font-weight:800;font-size:.95rem;border:2px solid rgba(255,255,255,.55)}
+.dav img{width:100%;height:100%;object-fit:cover;display:block}
+.duser:hover .dname,.duser:focus-visible .dname{text-decoration:underline}
+
+/* ===== سجلات المشاهدة ===== */
+.mr-lg-f{padding:20px 22px;margin-bottom:14px}.mr-lg{padding:16px 18px;margin-top:14px}
+.mr-lg-g{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:16px 0}
+.mr-lg-g label{display:flex;flex-direction:column;gap:4px;font-size:.84rem;font-weight:700;color:var(--ink2);min-width:0}
+.mr-lg-g label.mr-lg-q{grid-column:1/-1}
+.mr-lg-g select,.mr-lg-g input[type=date]{min-height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-weight:500;padding:0 10px;width:100%}
+.mr-lg .mr-t td{vertical-align:middle}.mr-lg .mr-t td small{display:block;color:var(--muted);font-size:.78rem}
+.mr-lg-t td:first-child{white-space:nowrap}.mr-lg-t .sm-t{font-size:.8rem;color:var(--ink2);line-height:1.7}
+.mr-lnk{border:0;background:none;padding:0;font:inherit;color:var(--brand2);cursor:pointer;text-align:start}.mr-lnk:hover b{text-decoration:underline}
+@media (max-width:900px){.mr-lg-g{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){.mr-lg-f,.mr-lg{padding:14px}.mr-lg-g{grid-template-columns:1fr 1fr}.mr-lg-g label:first-child{grid-column:1/-1}}
+@media (max-width:640px){
+  .mr-lg-t thead{display:none}.mr-lg-t,.mr-lg-t tbody{display:block}
+  .mr-lg-t tr{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 4px;border-bottom:1px solid var(--line)}
+  .mr-lg-t td{display:block;border:0;padding:2px 0}
+  .mr-lg-t td:nth-child(1){grid-column:1;grid-row:1}.mr-lg-t td:nth-child(3){grid-column:2;grid-row:1}
+  .mr-lg-t td:nth-child(2),.mr-lg-t td:nth-child(4),.mr-lg-t td:nth-child(5){grid-column:1/-1}.mr-lg-t td:nth-child(5):empty{display:none}
+  .mr-lg-t td:nth-child(1) small.dd{display:inline;margin-inline-start:6px}
+  .mr-lg-t td:nth-child(2)::before{content:"المستخدم: ";color:var(--muted);font-size:.78rem}.mr-lg-t td:nth-child(4)::before{content:"الملف: ";color:var(--muted);font-size:.78rem}
+  .mr-lg-t td:nth-child(2) b,.mr-lg-t td:nth-child(4) b{display:inline}
+}
+.mr-lg-t .badge{white-space:nowrap}

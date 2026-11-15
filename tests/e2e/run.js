@@ -39,12 +39,24 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
   await p.goto(`${BASE}/profile.html?k=student&id=${S1}`); await p.waitForURL(/login\.html/);
   ok(/login\.html\?next=profile\.html/.test(p.url()), "الملف لا يُفتح دون دخول");
 
-  // 2) معلم بلا صلاحية
+  // 2) معلم بلا صلاحية: يدخل إلى ملفه الشخصي وسجله كاملاً، ولا يصل إلى البحث ولا إلى ملفات غيره
+  const T3a = "30000000-0000-0000-0000-000000000003";
   p = await open(U.teacher);
-  await p.goto(`${BASE}/search.html`); await p.waitForSelector("text=لا تملك صلاحية الاطلاع");
-  ok(!(await p.$("#q")), "المعلم غير المخوّل لا يرى البحث");
-  await p.goto(`${BASE}/profile.html?k=student&id=${S1}`); await p.waitForSelector("text=لا تملك صلاحية الاطلاع");
-  ok(!(await p.content()).includes("أحمد"), "ولا يصل إلى بيانات المتعلم");
+  await p.goto(`${BASE}/search.html`); await p.waitForURL(new RegExp(`profile\\.html\\?k=staff&id=${T3a}`)); await p.waitForSelector("#tl");
+  ok(!(await p.$("#q")) && (await p.textContent(".mr-id h2")) === "إبراهيم المعلم", "المعلم غير المخوّل يُحوَّل إلى ملفه الشامل بدل رسالة المنع");
+  ok((await p.textContent(".pagebar h1")) === "ملفي الشامل" && (await p.textContent(".pagebar small")) === "منسوب", "عنوان «ملفي الشامل»");
+  ok(await p.isVisible('.dnav a.on:has-text("ملفي")') && !(await p.$('.dnav a[href="search.html"]')) && !(await p.$('.dnav a[href="perms.html"]')), "الشريط: «ملفي» فقط، دون البحث والصلاحيات");
+  ok((await p.textContent(".mr-id")).includes("4455667"), "يرى رقمه الوظيفي في ملفه");
+  ok((await p.textContent("#dav")) === "إ" && (await p.getAttribute(".duser", "href")).includes(T3a), "الترويسة: صورة المستخدم (أو أول حرف من اسمه) ثم اسمه، وتفتح ملفه");
+  await shot(p, "02-self-profile");
+  await p.goto(`${BASE}/profile.html?k=student&id=${S1}`); await p.waitForURL(/k=staff/); await p.waitForSelector("#tl");
+  ok(!(await p.content()).includes("أحمد عبدالله"), "ولا يصل إلى بيانات المتعلم (يُعاد إلى ملفه)");
+  await p.goto(`${BASE}/profile.html?k=staff&id=30000000-0000-0000-0000-000000000002`); await p.waitForURL(new RegExp(T3a)); await p.waitForSelector("#tl");
+  ok(!(await p.content()).includes("منسق الاطلاع</h2>"), "ولا إلى ملف معلم آخر");
+  await p.goto(`${BASE}/report.html?k=staff&id=${T3a}`); await p.waitForFunction(() => window.__ready === true);
+  ok((await p.textContent(".rp-end")).includes("صدر هذا التقرير من حساب: إبراهيم المعلم"), "يستخرج تقرير ملفه الشخصي");
+  await p.click("#go"); await p.waitForFunction(() => window.__printed === 1);
+  ok(p.errs.length === 0, "لا أخطاء JavaScript في الملف الشخصي: " + p.errs.join(" | "));
 
   // 3) المطّلع المخوّل: البحث ثم الملف
   p = await open(U.viewer, 1024, 1300); // مقاس الآيباد تقريباً
@@ -211,10 +223,10 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
     ok(p.errs.length === 0, `[جوال] لا أخطاء JavaScript في ${pg.split("?")[0]}: ` + p.errs.join(" | "));
   }
 
-  // 8) المصرح لهم: لوحة إدارة صلاحيتي تقرير المتعلم وتقرير المعلم
+  // 8) الصلاحيات: لوحة إدارة صلاحيتي تقرير المتعلم وتقرير المعلم
   p = await open(U.viewer); await p.goto(`${BASE}/search.html`); await p.waitForSelector("#q");
-  ok(!(await p.$('a[href="perms.html"]')), "المطّلع لا يرى رابط المصرح لهم");
-  await p.goto(`${BASE}/perms.html`); await p.waitForSelector("text=لوحة المصرح لهم");
+  ok(!(await p.$('a[href="perms.html"]')) && !(await p.$('a[href="log.html"]')), "المطّلع لا يرى رابط الصلاحيات ولا سجلات المشاهدة");
+  await p.goto(`${BASE}/perms.html`); await p.waitForSelector("text=هذه الصفحة لمدير النواة");
   ok(!(await p.$("#pmb")), "ولا يفتح اللوحة مباشرة");
   p = await open(U.admin); await p.goto(`${BASE}/search.html`); await p.click('a[href="perms.html"]'); await p.waitForSelector("#pmb tr[data-id]");
   ok((await p.$$("#pmb tr[data-id]")).length === +psql("select count(*) from staff_members where is_active"), "اللوحة تعرض كل منسوبي المدرسة الفعّالين");
@@ -226,24 +238,43 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
   ok(psql(`select string_agg(permission_code, ',') from staff_permissions where staff_id = '${T3}'`) === "mirat:view_student", "منح «تقرير المتعلم» يُحفظ في صلاحيات النواة");
   ok(+psql("select count(*) from audit_logs where action = 'PERMISSION'") >= 1, "المنح مسجل في سجل العمليات");
   await p.fill("#pmq", "ابراهيم"); ok((await p.$$("#pmb tr[data-id]")).length === 1, "البحث في المنسوبين بتوحيد الهمزة");
-  await p.click('[data-show="off"]'); ok(!(await p.$(TR)), "تصفية «غير المصرح لهم» تخفي من مُنح الآن");
-  ok(p.errs.length === 0, "لا أخطاء JavaScript في المصرح لهم: " + p.errs.join(" | "));
+  await p.click('[data-show="off"]'); ok(!(await p.$(TR)), "تصفية «بلا صلاحية» تخفي من مُنح الآن");
+  ok(p.errs.length === 0, "لا أخطاء JavaScript في الصلاحيات: " + p.errs.join(" | "));
   // المعلم الآن: ملفات المتعلمين فقط
   p = await open(U.teacher); await p.goto(`${BASE}/search.html`); await p.waitForSelector("#q");
   ok((await p.$$("[data-k]")).length === 1 && (await p.textContent(".mr-kind")).includes("ملف متعلم"), "المعلم يرى البحث عن المتعلمين فقط");
-  await p.goto(`${BASE}/profile.html?k=staff&id=${T3}`); await p.waitForSelector("text=تقرير المعلم");
-  ok(!(await p.$("#tl")), "ولا يفتح ملف معلم");
+  await p.goto(`${BASE}/profile.html?k=staff&id=30000000-0000-0000-0000-000000000002`); await p.waitForSelector("text=تقرير المعلم");
+  ok(!(await p.$("#tl")), "ولا يفتح ملف معلم آخر");
   await p.goto(`${BASE}/report.html?k=student&id=${S1}`); await p.waitForFunction(() => window.__ready === true);
   ok((await p.textContent(".rp-end")).includes("صدر هذا التقرير من حساب: إبراهيم المعلم"), "التقرير يذكر اسم صاحب الحساب الذي استخرجه");
   await p.emulateMedia({ media: "print" }); await p.pdf({ path: `${OUT}/report-by-teacher.pdf`, preferCSSPageSize: true });
   const tt = N(sh("pdftotext", ["-layout", `${OUT}/report-by-teacher.pdf`, "-"])).split("\f").filter((x) => x.trim());
   ok(tt.every((t) => t.includes(N("إبراهيم المعلم"))), `تذييل كل صفحات تقرير المعلم باسم حسابه (${tt.length} صفحة)`);
-  await p.emulateMedia({ media: "screen" }); await p.goto(`${BASE}/report.html?k=staff&id=${T3}`); await p.waitForSelector("#rpst.bad");
-  ok((await p.textContent("#rpst")).includes("تقرير المعلم") && !(await p.$("#doc .sheet")), "ولا يستخرج تقرير معلم");
+  await p.emulateMedia({ media: "screen" }); await p.goto(`${BASE}/report.html?k=staff&id=30000000-0000-0000-0000-000000000002`); await p.waitForSelector("#rpst.bad");
+  ok((await p.textContent("#rpst")).includes("تقرير المعلم") && !(await p.$("#doc .sheet")), "ولا يستخرج تقرير معلم آخر");
   // سحب الصلاحية من اللوحة
   p = await open(U.admin); await p.goto(`${BASE}/perms.html`); await p.waitForSelector(`${TR} input`);
   await p.click(`${TR} [data-p="student"]`); await p.waitForSelector(`${TR} .mr-sv.ok`);
   ok(psql(`select count(*) from staff_permissions where staff_id = '${T3}'`) === "0", "سحب الصلاحية يحذفها من النواة");
+  // 9) سجلات المشاهدة
+  p = await open(U.admin); await p.goto(`${BASE}/search.html`); await p.click('a[href="log.html"]'); await p.waitForSelector("#lb tr td .badge");
+  const nLog = +psql("select count(*) from audit_logs where table_name like 'mirat.%'");
+  ok((await p.textContent("#lk .mr-kpi.main b")) === String(nLog), `السجل يعرض كل عمليات مرآة (${nLog})`);
+  ok((await p.textContent("#lb")).includes("إبراهيم المعلم") && (await p.textContent("#lb")).includes("ملفه الشخصي"), "اطلاع المنسوب على ملفه يظهر باسمه");
+  ok((await p.textContent("#lb")).includes("أحمد عبدالله الحربي") && (await p.textContent("#lb")).includes("تصدير تقرير"), "يظهر اسم الملف الذي شوهد والتقارير المصدّرة");
+  ok((await p.textContent("#lb")).includes("تعديل صلاحيات") && (await p.textContent("#lb")).includes("إلى: تقرير المتعلم"), "تعديلات الصلاحيات مسجلة بما قبلها وما بعدها");
+  await shot(p, "09-log");
+  await p.selectOption("#fu", { label: "إبراهيم المعلم" }); await p.waitForFunction(() => [...document.querySelectorAll("#lb tr")].every((r) => r.textContent.includes("إبراهيم")));
+  ok((await p.$$("#lu tr")).length === 1, "التصفية بالمستخدم");
+  await p.selectOption("#fu", ""); await p.selectOption("#fa", "EXPORT"); await p.waitForFunction(() => [...document.querySelectorAll("#lb .badge")].every((b) => b.textContent === "تصدير تقرير"));
+  ok(true, "التصفية بالعملية");
+  await p.selectOption("#fa", ""); await p.fill("#fq", "احمد"); await p.waitForFunction(() => [...document.querySelectorAll("#lb tr")].length > 0 && [...document.querySelectorAll("#lb tr")].every((r) => r.textContent.includes("أحمد")));
+  ok(true, "البحث باسم صاحب الملف");
+  ok(p.errs.length === 0, "لا أخطاء JavaScript في سجلات المشاهدة: " + p.errs.join(" | "));
+  p = await open(U.admin, 390, 844); await p.goto(`${BASE}/log.html`); await p.waitForSelector("#lb tr td .badge");
+  ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "[جوال] log.html بلا تمرير أفقي");
+  await p.screenshot({ path: `${OUT}/09-log-mobile.png`, fullPage: true });
+
   p = await open(U.admin, 390, 844); await p.goto(`${BASE}/perms.html`); await p.waitForSelector("#pmb tr[data-id]");
   ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "[جوال] perms.html بلا تمرير أفقي");
   ok(await p.$$eval("#pmb .mr-ck", (l) => l.every((x) => x.getBoundingClientRect().height >= 44)), "[جوال] مربعات الصلاحيات بحجم لمس مناسب");

@@ -69,6 +69,10 @@ create or replace function public.mr_can_kind(p_kind text) returns boolean langu
      and exists (select 1 from public.staff_members where user_id = auth.uid() and is_active)
      and (public.mr_can_manage() or public.mr__flag('core_can', 'mirat:view') or public.mr__flag('core_can', 'mirat:view_' || p_kind)) $$;
 
+-- ملف المنسوب نفسه: كل منسوب فعّال يطّلع على ملفه الشامل ويستخرج تقريره، دون البحث عن غيره
+create or replace function public.mr__self(p_staff uuid) returns boolean language sql stable security definer set search_path to '' as $$
+  select exists (select 1 from public.staff_members where id = p_staff and user_id = auth.uid() and is_active) $$;
+
 -- الدخول إلى المنصة: من يملك أحد النوعين على الأقل
 create or replace function public.mr_can() returns boolean language sql stable security definer set search_path to '' as $$
   select public.mr_can_kind('student') or public.mr_can_kind('staff') $$;
@@ -77,6 +81,10 @@ create or replace function public.mr_whoami() returns jsonb language sql stable 
   select case when s.id is null then null else jsonb_build_object(
     'staff_id', s.id, 'name', s.full_name, 'can', public.mr_can(), 'is_admin', public.mr__flag('is_core_admin'),
     'can_student', public.mr_can_kind('student'), 'can_staff', public.mr_can_kind('staff'), 'manage', public.mr_can_manage(),
+    'photo', (select case when pp.avatar_path is not null then jsonb_build_object('bucket', 'pc-avatars', 'path', pp.avatar_path, 'public', true)
+        when s.public_photo_path is not null then jsonb_build_object('bucket', 'public-photos', 'path', s.public_photo_path, 'public', true)
+        when s.photo_path is not null then jsonb_build_object('bucket', 'registry-media', 'path', s.photo_path, 'public', false) end
+      from (select 1) y left join public.pc_profiles pp on pp.staff_id = s.id),
     'students_basic', public.mr__flag('core_can', 'students:view'), 'students_contact', public.mr__flag('core_can', 'students_contact:view'),
     'staff_basic', public.mr__flag('core_can', 'personnel:view'), 'staff_contact', public.mr__flag('core_can', 'personnel_contact:view'),
     'guidance', public.mr__flag('is_core_admin') or public.mr__flag('qm_is_support'),
@@ -251,9 +259,9 @@ end $$;
 create or replace function public.mr_staff_profile(p_id uuid) returns jsonb language plpgsql volatile security definer set search_path to '' as $$
 declare v_p jsonb; v_s jsonb; basic boolean; contact boolean; c jsonb;
 begin
-  if not public.mr_can_kind('staff') then perform public.mr__log('DENIED', 'staff', p_id); return jsonb_build_object('error', 'forbidden'); end if;
-  basic := public.mr__flag('core_can', 'personnel:view');
-  contact := public.mr__flag('core_can', 'personnel_contact:view');
+  if not (public.mr_can_kind('staff') or public.mr__self(p_id)) then perform public.mr__log('DENIED', 'staff', p_id); return jsonb_build_object('error', 'forbidden'); end if;
+  basic := public.mr__flag('core_can', 'personnel:view') or public.mr__self(p_id);
+  contact := public.mr__flag('core_can', 'personnel_contact:view') or public.mr__self(p_id);
 
   select jsonb_build_object('id', s.id, 'name', s.full_name, 'category', coalesce(sc.name_ar, s.category), 'job', coalesce(jt.name_ar, s.job_title),
       'specialty', s.specialty, 'qualification', s.qualification, 'department', s.department, 'employment_status', s.employment_status,
@@ -415,13 +423,13 @@ end $$;
 create or replace function public.mr_log_export(p_kind text, p_id uuid) returns jsonb language plpgsql volatile security definer set search_path to '' as $$
 begin
   if p_kind not in ('student', 'staff') then return jsonb_build_object('error', 'bad_request'); end if;
-  if not public.mr_can_kind(p_kind) then perform public.mr__log('DENIED', p_kind, p_id, '{"op":"export"}'); return jsonb_build_object('error', 'forbidden'); end if;
+  if not (public.mr_can_kind(p_kind) or (p_kind = 'staff' and public.mr__self(p_id))) then perform public.mr__log('DENIED', p_kind, p_id, '{"op":"export"}'); return jsonb_build_object('error', 'forbidden'); end if;
   perform public.mr__log('EXPORT', p_kind, p_id);
   return jsonb_build_object('ok', true);
 end $$;
 
 -- الواجهة البرمجية: للمستخدمين المسجلين فقط، والتحقق داخل كل دالة
-revoke all on function public.mr__leader(uuid) from public, anon, authenticated;
+revoke all on function public.mr__leader(uuid), public.mr__self(uuid) from public, anon, authenticated;
 revoke all on function public.mr_can_manage(), public.mr_can_kind(text), public.mr_can(), public.mr_whoami(), public.mr_search(text, text, int), public.mr_student_profile(uuid),
   public.mr_staff_profile(uuid), public.mr_log_export(text, uuid) from public, anon;
 grant execute on function public.mr_can_manage(), public.mr_can_kind(text), public.mr_can(), public.mr_whoami(), public.mr_search(text, text, int), public.mr_student_profile(uuid),
