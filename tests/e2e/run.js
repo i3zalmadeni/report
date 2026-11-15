@@ -47,7 +47,11 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
   ok((await p.textContent(".pagebar h1")) === "ملفي الشامل" && (await p.textContent(".pagebar small")) === "منسوب", "عنوان «ملفي الشامل»");
   ok(await p.isVisible('.dnav a.on:has-text("ملفي")') && !(await p.$('.dnav a[href="search.html"]')) && !(await p.$('.dnav a[href="perms.html"]')), "الشريط: «ملفي» فقط، دون البحث والصلاحيات");
   ok((await p.textContent(".mr-id")).includes("4455667"), "يرى رقمه الوظيفي في ملفه");
-  ok((await p.textContent("#dav")) === "إ" && (await p.getAttribute(".duser", "href")).includes(T3a), "الترويسة: صورة المستخدم (أو أول حرف من اسمه) ثم اسمه، وتفتح ملفه");
+  ok((await p.textContent("#ubAv")) === "إ" && (await p.getAttribute(".ub-u", "href")).includes(T3a) && (await p.textContent(".ub-nm")) === "إبراهيم المعلم", "الشريط: صورة المستخدم (أو أول حرف من اسمه) ثم اسمه الأول والأخير، وتفتح ملفه");
+  ok(await p.evaluate(() => { const b = [...document.querySelector(".dnav .ub").children].map((e) => e.className.split(" ")[0]); return b.join(",") === "ub-n,ub-u,ub-out"; }) && (await p.textContent("#out")).includes("خروج") && !!(await p.$("#out svg")), "ترتيب آخر الشريط: الإشعارات، ثم الصورة والاسم، ثم أيقونة «خروج»");
+  await p.click("#ubB"); await p.waitForSelector("#ubP:not([hidden]) .ub-empty:has-text('لا إشعارات')");
+  ok(await p.isHidden("#ubC") && await p.isHidden("#ubA"), "قائمة الإشعارات تُفتح، ولا «مشاهدة الكل» لمن لا يملك صفحة سجلات");
+  await p.keyboard.press("Escape"); ok(await p.isHidden("#ubP"), "Esc يغلق القائمة");
   await shot(p, "02-self-profile");
   await p.goto(`${BASE}/profile.html?k=student&id=${S1}`); await p.waitForURL(/k=staff/); await p.waitForSelector("#tl");
   ok(!(await p.content()).includes("أحمد عبدالله"), "ولا يصل إلى بيانات المتعلم (يُعاد إلى ملفه)");
@@ -256,8 +260,17 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
   p = await open(U.admin); await p.goto(`${BASE}/perms.html`); await p.waitForSelector(`${TR} input`);
   await p.click(`${TR} [data-p="student"]`); await p.waitForSelector(`${TR} .mr-sv.ok`);
   ok(psql(`select count(*) from staff_permissions where staff_id = '${T3}'`) === "0", "سحب الصلاحية يحذفها من النواة");
+  // 8ب) إشعارات المعلم بعد منحه الصلاحية: إشعار تعديل صلاحياته
+  p = await open(U.teacher); await p.goto(`${BASE}/search.html`); await p.waitForSelector(".ub-bell"); await p.waitForSelector("#ubC:not([hidden])");
+  await p.click("#ubB"); await p.waitForSelector("#ubP .ub-it");
+  ok((await p.textContent("#ubL")).includes("عدّل مدير الاختبار صلاحياتك في مرآة") && (await p.textContent("#ubL")).includes("تقرير المتعلم"), "إشعار المنسوب بتعديل صلاحياته");
+  await p.click("#ubR"); ok(await p.isHidden("#ubC"), "تحديد الكل كمقروء يخفي العدّاد");
+  await p.reload(); await p.waitForSelector(".ub-bell"); await p.waitForTimeout(800); ok(await p.isHidden("#ubC"), "المقروء يبقى مقروءاً بعد إعادة التحميل");
+  await shot(p, "08b-bell");
   // 9) سجلات المشاهدة
-  p = await open(U.admin); await p.goto(`${BASE}/search.html`); await p.click('a[href="log.html"]'); await p.waitForSelector("#lb tr td .badge");
+  p = await open(U.admin); await p.goto(`${BASE}/search.html`); await p.click("#ubB"); await p.waitForSelector("#ubP .ub-it");
+  ok(await p.isVisible('#ubA[href="log.html"]') && (await p.textContent("#ubL")).includes("اطّلع إبراهيم المعلم"), "إشعارات المدير: نشاط الآخرين، و«مشاهدة الكل» تفتح سجلات المشاهدة");
+  await p.click("#ubA"); await p.waitForURL(/log\.html/); await p.goto(`${BASE}/search.html`); await p.click('a[href="log.html"]'); await p.waitForSelector("#lb tr td .badge");
   const nLog = +psql("select count(*) from audit_logs where table_name like 'mirat.%'");
   ok((await p.textContent("#lk .mr-kpi.main b")) === String(nLog), `السجل يعرض كل عمليات مرآة (${nLog})`);
   ok((await p.textContent("#lb")).includes("إبراهيم المعلم") && (await p.textContent("#lb")).includes("ملفه الشخصي"), "اطلاع المنسوب على ملفه يظهر باسمه");

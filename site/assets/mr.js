@@ -126,13 +126,6 @@ const NAV = [
   [() => "perms.html", "الصلاحيات", "key", "من يطّلع على الملفات ويستخرج التقارير", (w) => w.manage],
   [() => "log.html", "سجلات المشاهدة", "eye", "من اطّلع على أي ملف ومتى", (w) => w.manage],
 ];
-// صورة المستخدم في الترويسة: صورته في مجتمع لبيد المهني، أو صورته المنشورة، أو صورته في سجل النواة (رابط موقّع مؤقت)
-async function avatarUrl(ph) {
-  if (!ph || !ph.path) return null;
-  if (ph.public) return `${APP_CONFIG.supabaseUrl}/storage/v1/object/public/${ph.bucket}/${ph.path.split("/").map(encodeURIComponent).join("/")}`;
-  try { const { data } = await sb.storage.from(ph.bucket).createSignedUrl(ph.path, 3600); return data?.signedUrl || null; } catch (_) { return null; }
-}
-const initials = (n) => String(n || "").trim().charAt(0);
 // المنسوب بلا صلاحية اطلاع: ملفه الشخصي وتقريره فقط
 const isOwnFile = (who) => qs0.get("k") === "staff" && qs0.get("id") === who.staff_id;
 const qs0 = new URLSearchParams(location.search);
@@ -157,14 +150,24 @@ async function boot(page, render, o = {}) {
     `<header class="dash"><div class="wrap top">${brandHTML("index.html")}<div class="idl"><a class="sitelink" href="index.html">الموقع الإلكتروني</a><span class="vdiv"></span>${coreBlock()}${headMoe}</div></div>
      <div class="strip" aria-hidden="true"></div>
      <div class="dnav"><div class="wrap dn"><div class="dnav-in">${NAV.filter((x) => !x[4] || x[4](who)).map(([hf, n, e, t]) => { const h = hf(who), on = h === page || (h.includes("?") && here === h); return `<a href="${esc(h)}" title="${esc(t)}" class="${on ? "on" : ""}" ${on ? 'aria-current="page"' : ""}>${ico(e)}${n}</a>`; }).join("")}</div>
-     <div class="dwho"><a class="duser" href="${esc(myFile(who))}" title="ملفي الشامل"><span class="dav" id="dav" aria-hidden="true">${esc(initials(who.name))}</span><span class="dname">${esc(who.name)}</span></a><a class="loginbtn" href="#" id="out">خروج</a></div></div></div></header>
+     <div class="dwho">${ubBarHTML(who.name, myFile(who))}</div></div></div></header>
      <div class="pagebar"><div class="wrap pb"><div class="pb-t"><small>${esc(role)}</small><h1>${esc(o.title || "الملف الشامل")}</h1></div><p class="pb-d">${esc(o.desc || "")}</p>
      <div class="pb-u"><span>${esc(fmtHijri(todayISO()))}</span></div></div></div>
      <main class="wrap" id="main"></main>${footerHTML}`;
   bindNav();
-  avatarUrl(who.photo).then((u) => { if (!u) return; const im = new Image(); im.alt = ""; im.onload = () => { const d = $("#dav"); if (d) { d.textContent = ""; d.appendChild(im); } }; im.src = u; });
   document.title = (o.title || "الملف الشامل") + " – مرآة";
   $("#out").onclick = (e) => { e.preventDefault(); doLogout(); };
+  // الإشعارات: تعديلات صلاحياتك في مرآة، ولمن يدير مرآة آخر العمليات من غيره، و«مشاهدة الكل» سجلات المشاهدة
+  ubMount({ key: "mr", uid: who.staff_id, allUrl: who.manage ? "log.html" : null, load: async () => {
+    const L = await rpc("mr_my_notifications", { p_limit: 20 }), P = (a) => (a && a.length ? a.map((c) => PERM_AR[c] || c).join("، ") : "لا شيء");
+    const K = (r) => (r.kind === "student" ? "ملف المتعلم" : "ملف المعلم");
+    return (L || []).map((r) => r.mine
+      ? { id: r.id, t: r.at, tone: "warn", icon: "key", href: who.can ? "search.html" : myFile(who), title: `عدّل ${r.actor} صلاحياتك في مرآة`, body: `صلاحياتك الآن: ${P(r.new)}` }
+      : r.action === "PERMISSION" ? { id: r.id, t: r.at, tone: "warn", icon: "key", href: "perms.html", title: `عدّل ${r.actor} صلاحيات ${r.target || "منسوب"}`, body: `من: ${P(r.old)} · إلى: ${P(r.new)}` }
+      : r.action === "DENIED" ? { id: r.id, t: r.at, tone: "bad", icon: "lock", href: "log.html", title: `رُفض وصول ${r.actor}`, body: `${K(r)}: ${r.target || "—"}` }
+      : { id: r.id, t: r.at, tone: r.action === "EXPORT" ? "ok" : "info", icon: r.action === "EXPORT" ? "file" : "eye", href: "log.html",
+          title: `${r.action === "EXPORT" ? "صدّر" : "اطّلع"} ${r.actor} ${r.action === "EXPORT" ? "تقرير" : "على"} ${K(r)}`, body: r.target || "" });
+  } });
   const main = $("#main");
   try { await render(main, who); } catch (e) { console.error(e); main.innerHTML = `<div class="card"><p class="err">${esc(mapErr(e))}</p><button class="btn sec" onclick="location.reload()">إعادة المحاولة</button></div>`; }
 }

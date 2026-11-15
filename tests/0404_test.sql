@@ -56,3 +56,18 @@ do $$ begin perform public.mr_audit_list(); raise exception 'anon reached mr_aud
 exception when insufficient_privilege then null; end $$;
 reset role;
 select 'ALL 0404 TESTS PASSED';
+-- 3) إشعارات شريط المستخدم
+select pg_temp.as_user('a0000000-0000-0000-0000-000000000003');
+set role authenticated;
+do $$ declare n jsonb := public.mr_my_notifications(); begin
+  assert jsonb_array_length(n) >= 1 and (select bool_and((x->>'mine')::boolean) from jsonb_array_elements(n) x), 'teacher sees only own permission changes';
+  assert n->0->>'actor' = 'مدير الاختبار', 'actor name';
+end $$;
+reset role;
+select pg_temp.as_user('a0000000-0000-0000-0000-000000000001');
+set role authenticated;
+do $$ declare n jsonb := public.mr_my_notifications(); begin
+  assert jsonb_array_length(n) >= 1 and not exists (select 1 from jsonb_array_elements(n) x where x->>'actor' = 'مدير الاختبار'), 'manager sees others activity, not own';
+end $$;
+reset role;
+select 'ALL 0405 TESTS PASSED';
