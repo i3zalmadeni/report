@@ -21,7 +21,7 @@ PAGES.search = () => boot("search.html", async (main, who) => {
   const setKind = (k) => { kind = k; $$("[data-k]").forEach((b) => b.setAttribute("aria-checked", b.dataset.k === k));
     q.placeholder = k === "student" ? "اكتب اسم المتعلم أو رقمه المدرسي (رقم الهوية)" : who.staff_basic ? "اكتب اسم المعلم أو رقمه الوظيفي" : "اكتب اسم المعلم";
     $("#hint").textContent = k === "student" ? "يكفي جزء من الاسم، والبحث لا يتأثر بالهمزات والتاء المربوطة." : "يشمل جميع منسوبي المدرسة المسجلين في النواة.";
-    history.replaceState(null, "", "?k=" + k); run(); };
+    history.replaceState(null, "", "?k=" + k + (q.value.trim() ? "&q=" + encodeURIComponent(q.value.trim()) : "")); run(); };
   let t = 0, seq = 0;
   const run = async () => {
     const v = q.value.trim(), my = ++seq; $("#cnt").textContent = "";
@@ -41,6 +41,7 @@ PAGES.search = () => boot("search.html", async (main, who) => {
   };
   q.addEventListener("input", () => { clearTimeout(t); t = setTimeout(run, 280); });
   $$("[data-k]").forEach((b) => (b.onclick = () => setKind(b.dataset.k)));
+  if (qs.get("q")) q.value = qs.get("q");
   setKind(kind); q.focus();
 }, { title: "البحث الموحد", desc: "اختر نوع الملف ثم ابحث بالاسم أو الرقم" });
 
@@ -194,7 +195,8 @@ const ACT = { VIEW: ["اطلاع على ملف", "info", "eye"], EXPORT: ["تص�
 const PERM_AR = { "mirat:view_student": "تقرير المتعلم", "mirat:view_staff": "تقرير المعلم", "mirat:approve": "منسق مرآة", "mirat:view": "اطلاع (سابقة)" };
 const permTxt = (a) => (a && a.length ? a.map((c) => PERM_AR[c] || c).join("، ") : "لا شيء");
 PAGES.log = () => boot("log.html", async (main) => {
-  const F = { p_actor: qs.get("u") || null, p_action: null, p_kind: null, p_q: null, p_from: null, p_to: null };
+  const d0 = /^\d{4}-\d{2}-\d{2}$/.test(qs.get("d") || "") ? qs.get("d") : null; // ?d= يوم محدد (من «نشاط اليوم» في مكتبي)
+  const F = { p_actor: qs.get("u") || null, p_action: null, p_kind: null, p_q: null, p_from: d0, p_to: d0 };
   let rows = [], total = 0, users = null;
   main.innerHTML = `<section class="card mr-lg-f">
       <div class="mr-pm-in"><span class="mr-av" aria-hidden="true">${ico("eye")}</span><div><h2>سجلات المشاهدة</h2>
@@ -242,6 +244,53 @@ PAGES.log = () => boot("log.html", async (main) => {
   bindF("#fu", "p_actor"); bindF("#fa", "p_action"); bindF("#fk", "p_kind"); bindF("#ff", "p_from"); bindF("#ft", "p_to");
   let t = 0; $("#fq").addEventListener("input", (e) => { clearTimeout(t); t = setTimeout(() => { F.p_q = e.target.value.trim() || null; go(); }, 300); });
   $("#lu").addEventListener("click", (e) => { const b = e.target.closest("[data-u]"); if (!b || !b.dataset.u) return; F.p_actor = b.dataset.u; $("#fu").value = b.dataset.u; go(); window.scrollTo({ top: 0, behavior: "smooth" }); });
+  if (d0) { $("#ff").value = d0; $("#ft").value = d0; }
   $("#more").onclick = () => load(true);
   await load(false);
 }, { title: "سجلات المشاهدة", desc: "من اطّلع على أي ملف، ومتى، ومن صدّر التقارير", manage: true });
+
+// ===== مكتبي الإلكتروني: الصفحة الرئيسية في لوحة التحكم =====
+// اختصارات بحسب الصلاحية، وبحث سريع، وآخر الإشعارات (المصدر نفسه في الجرس)، ونشاط اليوم لمن يدير مرآة.
+PAGES.desk = () => boot("desk.html", async (main, who) => {
+  const kinds = ["student", "staff"].filter((k) => who["can_" + k]);
+  const role = who.is_admin ? "مدير النواة الرقمية" : who.manage ? "منسق مرآة" : who.can ? "مطّلع مخوّل" : "منسوب";
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Riyadh" });
+  const tile = (href, icon, t, d, extra = "") => `<a class="mr-tile card" href="${esc(href)}"><span class="mr-av" aria-hidden="true">${ico(icon)}</span><span class="mr-tile-t"><b>${t}${extra}</b><small>${d}</small></span>${ico("arrow")}</a>`;
+  main.innerHTML = `<section class="card mr-desk-h">
+      <div class="mr-pm-in"><span class="mr-av" aria-hidden="true">${ico("home")}</span><div><h2>مرحباً، ${esc(ubShortName(who.name))}</h2>
+      <p class="sub">${esc(role)} · ${fmtD(today)}</p></div></div>
+      ${kinds.length ? `<form class="mr-desk-q" id="dq" role="search"><div class="mr-seg" role="radiogroup" aria-label="نوع الملف">${kinds.map((k, i) => `<button type="button" role="radio" data-dk="${k}" aria-checked="${i === 0}">${ico(k === "student" ? "cap" : "user")}${k === "student" ? "متعلم" : "معلم"}</button>`).join("")}</div>
+        <div class="mr-search mr-search-c">${ico("search")}<input type="search" id="dqi" placeholder="ابحث بالاسم أو الرقم" aria-label="بحث سريع"></div><button class="btn" type="submit">بحث</button></form>` : ""}
+    </section>
+    <div class="mr-tiles">
+      ${tile(myFile(who), "user", "ملفي الشامل", "سجلك كاملاً، واستخراج تقريرك")}
+      ${who.can ? tile("search.html", "search", "البحث الموحد", kinds.length > 1 ? "ملفات المتعلمين والمعلمين" : kinds[0] === "student" ? "ملفات المتعلمين" : "ملفات المعلمين") : ""}
+      ${tile("inbox.html", "bell", "الإشعارات", "ما يخصك من مستجدات", '<span class="badge warn" id="dnb" hidden></span>')}
+      ${who.manage ? tile("perms.html", "key", "الصلاحيات", "من يطّلع ويستخرج التقارير") + tile("log.html", "eye", "سجلات المشاهدة", "من اطّلع على أي ملف ومتى") : ""}
+    </div>
+    <div class="mr-desk-c">
+      <section class="card mr-lg"><h3 class="mr-h">${ico("bell")}آخر الإشعارات <a class="mr-more" href="inbox.html">مشاهدة الكل</a></h3><div id="dn">${loading("جارٍ التحميل…")}</div></section>
+      ${who.manage ? `<section class="card mr-lg"><h3 class="mr-h">${ico("chart")}نشاط اليوم <a class="mr-more" href="log.html?d=${today}">سجلات المشاهدة</a></h3><div id="dact">${loading("جارٍ التحميل…")}</div></section>` : ""}
+    </div>`;
+  // البحث السريع ينتقل إلى صفحة البحث بالنوع والكلمة
+  let dk = kinds[0];
+  $$("[data-dk]").forEach((b) => (b.onclick = () => { dk = b.dataset.dk; $$("[data-dk]").forEach((x) => x.setAttribute("aria-checked", String(x === b))); }));
+  if ($("#dq")) $("#dq").onsubmit = (e) => { e.preventDefault(); const v = $("#dqi").value.trim(); location.href = `search.html?k=${dk}${v ? "&q=" + encodeURIComponent(v) : ""}`; };
+  // آخر الإشعارات من مصدر الجرس نفسه، وتتحدّث معه
+  const drawN = () => {
+    const box = $("#dn"); if (!box) { UB.pages = UB.pages.filter((f) => f !== drawN); return; }
+    if (!UB.loaded) return; const un = UB.N.filter(ubUnread).length, nb = $("#dnb");
+    if (nb) { nb.hidden = !un; nb.textContent = un + " غير مقروء"; }
+    box.innerHTML = UB.N.length ? `<div class="ubg mr-dn"><div class="ubg-c">${UB.N.slice(0, 5).map((x, i) => ubItem(x, i, "ubg-it")).join("")}</div></div>` : `<p class="sub">لا إشعارات حالياً.</p>`;
+  };
+  UB.pages.push(drawN); drawN();
+  if (who.manage) {
+    try {
+      const d = await rpc("mr_audit_list", { p_from: today, p_to: today, p_limit: 1 });
+      const s = (k) => d.by_user.reduce((a, u) => a + (+u[k] || 0), 0);
+      $("#dact").innerHTML = `<div class="mr-kpis mr-pm-k">${[["عملية اليوم", d.total, "main"], ["اطلاع على ملف", s("views"), "info"], ["تقرير مصدّر", s("exports"), "ok"], ["رفض وصول", s("denied"), "bad"]]
+        .map(([t, v, c]) => `<div class="mr-kpi ${c}"><b>${v}</b><span>${t}</span></div>`).join("")}</div>
+        ${d.by_user.length ? `<ul class="mr-dl">${d.by_user.slice(0, 5).map((u) => `<li><b>${esc(u.name)}</b><span>${+u.files === 1 ? "ملف واحد" : +u.files === 2 ? "ملفان" : +u.files <= 10 ? u.files + " ملفات" : u.files + " ملفاً"} · آخر نشاط ${esc(String(u.last || "").slice(11, 16))}</span></li>`).join("")}</ul>` : `<p class="sub">لا نشاط اليوم حتى الآن.</p>`}`;
+    } catch (e) { $("#dact").innerHTML = `<p class="err">${esc(mapErr(e))}</p>`; }
+  }
+}, { title: "مكتبي الإلكتروني", desc: "اختصاراتك وآخر إشعاراتك ونشاط اليوم" });

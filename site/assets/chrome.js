@@ -259,7 +259,7 @@ function pubInit(active) {
   document.querySelectorAll("[data-core]").forEach((e) => (e.innerHTML = CORE_ICON));
   document.querySelectorAll("[data-ico]").forEach((e) => (e.innerHTML = ico(e.dataset.ico)));
   bindNav(); pubSubnav();
-  try { if (Object.keys(localStorage).some((k) => /^sb-.*-auth-token$/.test(k))) document.querySelectorAll("[data-login]").forEach((a) => { a.href = "search.html"; }); } catch (e) {}
+  try { if (Object.keys(localStorage).some((k) => /^sb-.*-auth-token$/.test(k))) document.querySelectorAll("[data-login]").forEach((a) => { a.href = "desk.html"; }); } catch (e) {}
   const rv = document.querySelectorAll(".rv"), reduce = matchMedia("(prefers-reduced-motion:reduce)").matches;
   const count = (el) => { const to = +el.dataset.count, t0 = performance.now(); if (reduce) { el.textContent = to; return; } const step = (t) => { const k = Math.min(1, (t - t0) / 1200); el.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); };
   if (!("IntersectionObserver" in window)) { rv.forEach((e) => e.classList.add("in")); document.querySelectorAll("[data-count]").forEach(count); return; }

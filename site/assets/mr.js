@@ -121,6 +121,7 @@ const kindLabel = (k) => (k === "student" ? "متعلم" : "معلم");
 // [الرابط، الاسم، الأيقونة، التلميح، شرط الظهور]. «ملفي» لكل منسوب: يطّلع على ملفه الشامل وتقريره دون صلاحية إضافية
 const myFile = (w) => "profile.html?k=staff&id=" + encodeURIComponent(w.staff_id);
 const NAV = [
+  [() => "desk.html", "مكتبي الإلكتروني", "home", "اختصاراتك وآخر إشعاراتك ونشاط اليوم"],
   [() => "search.html", "البحث", "search", "بحث موحد عن متعلم أو معلم", (w) => w.can],
   [myFile, "ملفي", "user", "ملفي الشامل وسجلي كاملاً"],
   [() => "perms.html", "الصلاحيات", "key", "من يطّلع على الملفات ويستخرج التقارير", (w) => w.manage],
@@ -140,7 +141,7 @@ async function boot(page, render, o = {}) {
   let who;
   try { who = await rpc("mr_whoami"); } catch (e) { console.error(e); fail(mapErr(e)); return; }
   if (!who) { await doLogout("login.html?e=nostaff"); return; }
-  if (!who.can && page !== "inbox.html" && !((page === "profile.html" || page === "report.html") && isOwnFile(who))) { location.replace(myFile(who)); return; }
+  if (!who.can && page !== "inbox.html" && page !== "desk.html" && !((page === "profile.html" || page === "report.html") && isOwnFile(who))) { location.replace(myFile(who)); return; }
   window.__mr = who;
   if (o.bare) { await render(shell, who); return; }
   if (o.manage && !who.manage) { fail("هذه الصفحة لمدير النواة الرقمية ومدير المدرسة ومنسق مرآة فقط.", true); return; }

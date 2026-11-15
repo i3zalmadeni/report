@@ -267,6 +267,22 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
   await p.click("#ubR"); ok(await p.isHidden("#ubC"), "تحديد الكل كمقروء يخفي العدّاد");
   await p.reload(); await p.waitForSelector(".ub-bell"); await p.waitForTimeout(800); ok(await p.isHidden("#ubC"), "المقروء يبقى مقروءاً بعد إعادة التحميل");
   await shot(p, "08b-bell");
+  // 8ج) مكتبي الإلكتروني: الصفحة الرئيسية في لوحة التحكم
+  p = await open(U.admin); await p.goto(`${BASE}/desk.html`); await p.waitForSelector("#dn .ubg-it"); await p.waitForSelector("#dact .mr-kpi");
+  ok((await p.textContent(".dnav a.on")).includes("مكتبي الإلكتروني") && (await p.$eval(".dnav a", (a) => a.textContent.trim())) === "مكتبي الإلكتروني", "«مكتبي الإلكتروني» أول تبويب في لوحة التحكم، والصفحة الرئيسية");
+  ok((await p.textContent(".pagebar h1")) === "مكتبي الإلكتروني" && (await p.textContent(".mr-desk-h h2")).includes("مرحباً"), "عنوان الصفحة والترحيب");
+  ok((await p.$$(".mr-tile")).length === 5 && (await p.$$("#dn .ubg-it")).length === 5, "اختصارات المدير الخمسة، وآخر خمسة إشعارات");
+  ok(+(await p.textContent("#dact .mr-kpi.main b")) >= 1, "نشاط اليوم للمدير");
+  await shot(p, "11-desk");
+  await p.fill("#dqi", "احمد"); await p.click("#dq button[type=submit]"); await p.waitForURL(/search\.html\?k=student&q=/); await p.waitForSelector(".mr-hit");
+  ok((await p.inputValue("#q")) === "احمد" && (await p.$$(".mr-hit")).length >= 1, "البحث السريع ينقل إلى البحث بالكلمة ويعرض النتائج");
+  await p.goto(`${BASE}/desk.html`); await p.click('a.mr-more[href^="log.html"]'); await p.waitForSelector("#lb tr td .badge");
+  ok(/^\d{4}-\d{2}-\d{2}$/.test(await p.inputValue("#ff")) && (await p.inputValue("#ff")) === (await p.inputValue("#ft")), "«سجلات المشاهدة» من نشاط اليوم تفتح مصفّاة باليوم");
+  ok(p.errs.length === 0, "لا أخطاء JavaScript في مكتبي: " + p.errs.join(" | "));
+  p = await open(U.teacher); await p.goto(`${BASE}/desk.html`); await p.waitForSelector(".mr-tile");
+  ok(p.url().includes("desk.html") && (await p.$$(".mr-tile")).length === 2 && !(await p.$("#dq")) && !(await p.$("#dact")), "المنسوب بلا صلاحية: مكتبه بملفه والإشعارات فقط، دون بحث ولا نشاط");
+  p = await open(U.admin, 390, 844); await p.goto(`${BASE}/desk.html`); await p.waitForSelector("#dn .ubg-it");
+  ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "[جوال] desk.html بلا تمرير أفقي"); await p.screenshot({ path: `${OUT}/11-desk-mobile.png`, fullPage: true });
   // 9) سجلات المشاهدة
   p = await open(U.admin); await p.goto(`${BASE}/search.html`); await p.click("#ubB"); await p.waitForSelector("#ubP .ub-it");
   ok(await p.isVisible('#ubA[href="inbox.html"]') && (await p.textContent("#ubL")).includes("اطّلع إبراهيم المعلم"), "إشعارات المدير: نشاط الآخرين، و«مشاهدة الكل» ظاهرة");

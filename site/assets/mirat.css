@@ -200,3 +200,20 @@ nav.mr-jump{flex-direction:row;flex-wrap:nowrap;justify-content:flex-start;flex:
   .mr-lg-t td:nth-child(2) b,.mr-lg-t td:nth-child(4) b{display:inline}
 }
 .mr-lg-t .badge{white-space:nowrap}
+
+/* ===== مكتبي الإلكتروني ===== */
+.mr-desk-h{padding:20px 22px;margin-bottom:14px}
+.mr-desk-q{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px}.mr-desk-q .mr-search{flex:1;min-width:220px}.mr-desk-q .btn{min-height:46px}
+.mr-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-bottom:14px}
+.mr-tile{display:flex;align-items:center;gap:12px;padding:16px;text-decoration:none;color:var(--ink);transition:transform .15s,box-shadow .15s}
+.mr-tile:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(13,43,69,.1)}.mr-tile>.ico:last-child{width:18px;height:18px;color:var(--muted);transform:scaleX(-1)}
+.mr-tile-t{flex:1;min-width:0}.mr-tile-t b{display:block;font-size:1rem}.mr-tile-t small{display:block;color:var(--ink2);font-size:.84rem;line-height:1.6}
+.mr-desk-c{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;align-items:start}.mr-desk-c .mr-lg{margin-top:0}
+.mr-h .mr-more{margin-inline-start:auto;font-size:.84rem;font-weight:700;color:var(--brand2);text-decoration:none}.mr-h .mr-more:hover{text-decoration:underline}
+.mr-h{display:flex;align-items:center;gap:8px}
+.ubg.mr-dn{border:0;padding:0;margin:0;box-shadow:none;background:none}
+.mr-dl{list-style:none;margin:12px 0 0;padding:0}.mr-dl li{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:.9rem}.mr-dl li:last-child{border-bottom:0}.mr-dl span{color:var(--ink2);font-size:.82rem}
+@media (max-width:640px){.mr-desk-h{padding:14px}.mr-desk-q .mr-seg{width:100%}.mr-desk-q .mr-seg button{flex:1}.mr-desk-q .btn{width:100%}.mr-desk-c{grid-template-columns:1fr}}
+.mr-tile-t b .badge{margin-inline-start:6px;font-size:.72rem;vertical-align:middle}
+.mr-desk-c .mr-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+ul.mr-dl{display:block;columns:auto;column-count:auto}ul.mr-dl li{width:100%;break-inside:avoid}
