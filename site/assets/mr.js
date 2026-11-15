@@ -51,9 +51,12 @@ const GROUPS = {
 const SST = { ok: "", restricted: "مقيد بالصلاحيات", unavailable: "المصدر غير متاح", error: "تعذرت القراءة" };
 
 const ERR = {
-  forbidden: "لا تملك صلاحية الاطلاع على الملفات الشاملة. تُمنح صلاحية «مرآة: اطلاع» من الأدوار والصلاحيات في النواة الرقمية.",
+  forbidden: "لا تملك صلاحية الاطلاع على الملفات الشاملة. تُمنح صلاحيتا «تقرير المتعلم» و«تقرير المعلم» من لوحة «المصرح لهم» في مرآة، ويديرها مدير النواة الرقمية ومدير المدرسة ومنسق مرآة.",
   not_found: "لا يوجد سجل بهذا المعرّف في النواة الرقمية.", bad_request: "طلب غير صحيح.",
+  leader: "مدير النواة ومدير المدرسة يملكان الصلاحية كاملة بحكم موقعهما، فلا تُعدَّل صلاحياتهما من هنا.",
+  admin_only: "تعيين منسق مرآة أو إعفاؤه لمدير النواة الرقمية ومدير المدرسة فقط.",
 };
+const KIND_DENIED = { student: "لا تملك صلاحية «تقرير المتعلم». تُمنح من لوحة المصرح لهم في مرآة.", staff: "لا تملك صلاحية «تقرير المعلم». تُمنح من لوحة المصرح لهم في مرآة." };
 const mapErr = (e) => { const m = e?.message || String(e); return ERR[m] || (/Failed to fetch|NetworkError|Load failed/i.test(m) ? "تعذر الاتصال بالخادم. تحقق من الشبكة ثم أعد المحاولة." : /does not exist|schema cache|Could not find the function/i.test(m) ? "لم تُنفَّذ طبقة القراءة (supabase/migrations/0401) على قاعدة النواة بعد." : m); };
 async function rpc(fn, args) {
   const { data, error } = await sb.rpc(fn, args || {});
@@ -115,7 +118,7 @@ const cell = (k, v) => (k === "d" || /_d$|^due$|^review$|^sub$|^joined$|^first$|
 const kindLabel = (k) => (k === "student" ? "متعلم" : "معلم");
 
 // ===== الهيكل: ترويسة النواة، والتحقق من الجلسة والصلاحية قبل أي عرض =====
-const NAV = [["search.html", "البحث", "search", "بحث موحد عن متعلم أو معلم"]];
+const NAV = [["search.html", "البحث", "search", "بحث موحد عن متعلم أو معلم"], ["perms.html", "المصرح لهم", "key", "من يطّلع على الملفات ويستخرج التقارير", (w) => w.manage]];
 async function boot(page, render, o = {}) {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { location.replace("login.html?next=" + encodeURIComponent(location.pathname.split("/").pop() + location.search)); return; }
@@ -127,14 +130,15 @@ async function boot(page, render, o = {}) {
   let who;
   try { who = await rpc("mr_whoami"); } catch (e) { console.error(e); fail(mapErr(e)); return; }
   if (!who) { await doLogout("login.html?e=nostaff"); return; }
-  if (!who.can) { fail(ERR.forbidden, true); return; }
+  if (!who.can && !(o.manage && who.manage)) { fail(ERR.forbidden, true); return; }
   window.__mr = who;
   if (o.bare) { await render(shell, who); return; }
-  const role = who.is_admin ? "مدير النواة الرقمية" : "مطّلع مخوّل";
+  if (o.manage && !who.manage) { fail("لوحة المصرح لهم لمدير النواة الرقمية ومدير المدرسة ومنسق مرآة فقط.", true); return; }
+  const role = who.is_admin ? "مدير النواة الرقمية" : who.manage ? "منسق مرآة" : "مطّلع مخوّل";
   shell.innerHTML =
     `<header class="dash"><div class="wrap top">${brandHTML("index.html")}<div class="idl"><a class="sitelink" href="index.html">الموقع الإلكتروني</a><span class="vdiv"></span>${coreBlock()}${headMoe}</div></div>
      <div class="strip" aria-hidden="true"></div>
-     <div class="dnav"><div class="wrap dn"><div class="dnav-in">${NAV.map(([h, n, e, t]) => `<a href="${h}" title="${esc(t)}" class="${h === page ? "on" : ""}" ${h === page ? 'aria-current="page"' : ""}>${ico(e)}${n}</a>`).join("")}</div>
+     <div class="dnav"><div class="wrap dn"><div class="dnav-in">${NAV.filter((x) => !x[4] || x[4](who)).map(([h, n, e, t]) => `<a href="${h}" title="${esc(t)}" class="${h === page ? "on" : ""}" ${h === page ? 'aria-current="page"' : ""}>${ico(e)}${n}</a>`).join("")}</div>
      <div class="dwho"><span class="dname">${esc(who.name)}</span><a class="loginbtn" href="#" id="out">خروج</a></div></div></div></header>
      <div class="pagebar"><div class="wrap pb"><div class="pb-t"><small>${esc(role)}</small><h1>${esc(o.title || "الملف الشامل")}</h1></div><p class="pb-d">${esc(o.desc || "")}</p>
      <div class="pb-u"><span>${esc(fmtHijri(todayISO()))}</span></div></div></div>

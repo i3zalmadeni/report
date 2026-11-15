@@ -5,7 +5,7 @@ const plain = (k, v) => (v == null || v === "" ? "—" : k === "st" || LBL_COLS.
 const rDate = (v) => (isDay(v) ? `<bdi class="nw">${esc(String(v).slice(0, 10))}</bdi>${String(v).length > 10 ? `<span class="tm">${esc(fmtHM(String(v).slice(11, 16)))}</span>` : ""}<span class="hj">${esc(fmtHijri(v))}</span>` : esc(v ?? "—"));
 const rCell = (k, v) => ((k === "d" || /_d$|^due$|^review$|^sub$|^joined$|^first$|^last$/.test(k)) && isDay(v) ? rDate(v) : esc(plain(k, v)));
 
-PAGES.report = () => boot("report.html", async (root) => {
+PAGES.report = () => boot("report.html", async (root, who) => {
   const kind = qs.get("k") === "staff" ? "staff" : "student", id = qs.get("id") || "";
   root.innerHTML = `<div class="rp-bar no-print"><div class="rp-bar-in"><b>معاينة التقرير</b><span id="rpst" class="rp-st">جارٍ جمع السجلات…</span>
     <span class="sp"></span><button class="rb sec" id="pick" type="button" aria-expanded="false" aria-controls="pk" disabled>محتوى التقرير <span id="pkc"></span></button><a class="rb sec" href="profile.html?k=${kind}&id=${encodeURIComponent(id)}">العودة إلى الملف</a><button class="rb" id="go" disabled>تصدير الملف الشامل PDF</button></div>
@@ -13,6 +13,7 @@ PAGES.report = () => boot("report.html", async (root) => {
     <p class="rp-tip">في نافذة الطباعة اختر «حفظ بتنسيق PDF»، والمقاس A4، والاتجاه عمودي، والهوامش «الافتراضية»، وألغِ خيار «الرؤوس والتذييلات» الخاص بالمتصفح. أفضل نتيجة من متصفح Chrome أو Edge.</p></div>
     <div id="doc" class="rp-doc"></div>`;
   if (!/^[0-9a-f-]{36}$/i.test(id)) { $("#rpst").textContent = "رابط غير صحيح."; return; }
+  if (!who["can_" + kind]) { $("#rpst").textContent = KIND_DENIED[kind]; $("#rpst").classList.add("bad"); return; }
   let p;
   try { p = await rpc(kind === "student" ? "mr_student_profile" : "mr_staff_profile", { p_id: id }); if (kind === "staff") await enrichStaff(p); }
   catch (e) { $("#rpst").textContent = mapErr(e); $("#rpst").classList.add("bad"); return; }
@@ -21,7 +22,7 @@ PAGES.report = () => boot("report.html", async (root) => {
   // الرأس والتذييل في هوامش كل صفحة (CSS Paged Media)، مع الترقيم التلقائي
   const st = document.createElement("style");
   st.textContent = `@page{@top-right{content:${cssStr("مرآة | الملف الشامل · متوسطة لبيد بن ربيعة المتوسطة")}}@top-left{content:${cssStr(P.name + (P.no ? " · " + P.no : ""))}}
-    @bottom-right{content:${cssStr("تاريخ الاستخراج: " + p.generated_at)}}}`;
+    @bottom-right{content:${cssStr("تاريخ الاستخراج: " + p.generated_at)}}@bottom-left{content:${cssStr("صدر التقرير من حساب: " + who.name)}}}`;
   document.head.appendChild(st);
 
   // ===== اختيار محتوى التقرير: أجزاؤه، والأنظمة وأقسامها (الافتراضي: الكل). يُحفظ الاختيار على هذا الجهاز فقط =====
@@ -106,7 +107,7 @@ PAGES.report = () => boot("report.html", async (root) => {
     </section>` : ""}
 
     <footer class="rp-end">هذا التقرير نافذة استعلامية على البيانات الموجودة في أنظمة النواة الرقمية لحظة استخراجه، ولا يُنشئ أي بيانات جديدة.
-      المرجع في أي سجل هو نظامه المصدر المذكور بجانبه. استُخرج بواسطة: ${esc(window.__mr?.name || "")}.</footer>
+      المرجع في أي سجل هو نظامه المصدر المذكور بجانبه. صدر هذا التقرير من حساب: ${esc(who.name)}.</footer>
   </article>`;
   const empty = !SEL.size || (!PART.sum && !PART.det && !PART.tl);
   $("#go").disabled = empty;

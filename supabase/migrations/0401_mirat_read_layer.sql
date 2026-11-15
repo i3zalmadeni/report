@@ -50,25 +50,45 @@ revoke all on function public.mr__t(timestamptz), public.mr__sn(uuid), public.mr
   public.mr__sec(text, text, text, text, jsonb, text, uuid, boolean, text), public.mr__log(text, text, uuid, jsonb) from public, anon, authenticated;
 
 -- ===== الصلاحية =====
--- الاطلاع: مدير النواة ومدير المدرسة، ومن مُنح صلاحية mirat:view في النواة. الحساب يجب أن يكون فعّالاً.
-create or replace function public.mr_can() returns boolean language sql stable security definer set search_path to '' as $$
+-- الاطلاع نوعان مستقلان: ملفات المتعلمين (mirat:view_student) وملفات المعلمين (mirat:view_staff)، تُمنحان من لوحة «المصرح لهم» (0403).
+-- مدير النواة ومدير المدرسة ومنسق مرآة يطّلعون على النوعين. الصلاحية القديمة mirat:view تعني النوعين. الحساب يجب أن يكون فعّالاً.
+-- قيادة المدرسة (مدير النواة أو مدير المدرسة) لمنسوب محدد
+create or replace function public.mr__leader(p_staff uuid) returns boolean language sql stable security definer set search_path to '' as $$
+  select exists (select 1 from public.staff_roles r where r.staff_id = p_staff and r.role_code in ('core_admin','principal') and r.ended_on is null) $$;
+
+-- إدارة المصرح لهم: مدير النواة ومدير المدرسة ومنسق مرآة (صلاحية mirat:approve أو دور منسق على النظام)
+create or replace function public.mr_can_manage() returns boolean language sql stable security definer set search_path to '' as $$
   select exists (select 1 from public.staff_members where user_id = auth.uid() and is_active)
-     and (public.mr__flag('is_core_admin') or public.mr__flag('core_can', 'mirat:view')) $$;
+     and (public.mr__flag('is_core_admin') or public.mr__flag('core_can', 'mirat:approve')
+       or exists (select 1 from public.staff_members s join public.staff_roles r on r.staff_id = s.id
+                  where s.user_id = auth.uid() and r.role_code = 'coordinator' and r.system_code = 'mirat' and r.ended_on is null)) $$;
+
+-- الاطلاع على نوع من الملفات: student أو staff
+create or replace function public.mr_can_kind(p_kind text) returns boolean language sql stable security definer set search_path to '' as $$
+  select p_kind in ('student', 'staff')
+     and exists (select 1 from public.staff_members where user_id = auth.uid() and is_active)
+     and (public.mr_can_manage() or public.mr__flag('core_can', 'mirat:view') or public.mr__flag('core_can', 'mirat:view_' || p_kind)) $$;
+
+-- الدخول إلى المنصة: من يملك أحد النوعين على الأقل
+create or replace function public.mr_can() returns boolean language sql stable security definer set search_path to '' as $$
+  select public.mr_can_kind('student') or public.mr_can_kind('staff') $$;
 
 create or replace function public.mr_whoami() returns jsonb language sql stable security definer set search_path to '' as $$
   select case when s.id is null then null else jsonb_build_object(
     'staff_id', s.id, 'name', s.full_name, 'can', public.mr_can(), 'is_admin', public.mr__flag('is_core_admin'),
+    'can_student', public.mr_can_kind('student'), 'can_staff', public.mr_can_kind('staff'), 'manage', public.mr_can_manage(),
     'students_basic', public.mr__flag('core_can', 'students:view'), 'students_contact', public.mr__flag('core_can', 'students_contact:view'),
     'staff_basic', public.mr__flag('core_can', 'personnel:view'), 'staff_contact', public.mr__flag('core_can', 'personnel_contact:view'),
     'guidance', public.mr__flag('is_core_admin') or public.mr__flag('qm_is_support'),
     'excuses', public.mr__flag('is_core_admin') or public.mr__flag('ind_can_oversee')) end
   from (select 1) x left join public.staff_members s on s.user_id = auth.uid() and s.is_active $$;
 
+
 -- ===== البحث الموحد =====
 create or replace function public.mr_search(p_kind text, p_q text, p_limit int default 20) returns jsonb language plpgsql stable security definer set search_path to '' as $$
 declare q text := public.mr__norm(btrim(p_q)); lim int := least(greatest(coalesce(p_limit, 20), 1), 50); v jsonb;
 begin
-  if not public.mr_can() then return jsonb_build_object('error', 'forbidden'); end if;
+  if not public.mr_can_kind(p_kind) then return jsonb_build_object('error', case when p_kind in ('student', 'staff') then 'forbidden' else 'bad_request' end); end if;
   if length(q) < 2 then return '[]'::jsonb; end if;
   if p_kind = 'student' then
     select coalesce(jsonb_agg(r order by r.rank, r.name), '[]') into v from (
@@ -98,7 +118,7 @@ end $$;
 create or replace function public.mr_student_profile(p_id uuid) returns jsonb language plpgsql volatile security definer set search_path to '' as $$
 declare v_p jsonb; v_s jsonb := '[]'; adm boolean; sup boolean; ovs boolean; basic boolean; contact boolean; c jsonb;
 begin
-  if not public.mr_can() then perform public.mr__log('DENIED', 'student', p_id); return jsonb_build_object('error', 'forbidden'); end if;
+  if not public.mr_can_kind('student') then perform public.mr__log('DENIED', 'student', p_id); return jsonb_build_object('error', 'forbidden'); end if;
   adm := public.mr__flag('is_core_admin');
   sup := adm or public.mr__flag('qm_is_support');
   ovs := adm or public.mr__flag('ind_can_oversee');
@@ -231,7 +251,7 @@ end $$;
 create or replace function public.mr_staff_profile(p_id uuid) returns jsonb language plpgsql volatile security definer set search_path to '' as $$
 declare v_p jsonb; v_s jsonb; basic boolean; contact boolean; c jsonb;
 begin
-  if not public.mr_can() then perform public.mr__log('DENIED', 'staff', p_id); return jsonb_build_object('error', 'forbidden'); end if;
+  if not public.mr_can_kind('staff') then perform public.mr__log('DENIED', 'staff', p_id); return jsonb_build_object('error', 'forbidden'); end if;
   basic := public.mr__flag('core_can', 'personnel:view');
   contact := public.mr__flag('core_can', 'personnel_contact:view');
 
@@ -395,13 +415,14 @@ end $$;
 create or replace function public.mr_log_export(p_kind text, p_id uuid) returns jsonb language plpgsql volatile security definer set search_path to '' as $$
 begin
   if p_kind not in ('student', 'staff') then return jsonb_build_object('error', 'bad_request'); end if;
-  if not public.mr_can() then perform public.mr__log('DENIED', p_kind, p_id, '{"op":"export"}'); return jsonb_build_object('error', 'forbidden'); end if;
+  if not public.mr_can_kind(p_kind) then perform public.mr__log('DENIED', p_kind, p_id, '{"op":"export"}'); return jsonb_build_object('error', 'forbidden'); end if;
   perform public.mr__log('EXPORT', p_kind, p_id);
   return jsonb_build_object('ok', true);
 end $$;
 
 -- الواجهة البرمجية: للمستخدمين المسجلين فقط، والتحقق داخل كل دالة
-revoke all on function public.mr_can(), public.mr_whoami(), public.mr_search(text, text, int), public.mr_student_profile(uuid),
+revoke all on function public.mr__leader(uuid) from public, anon, authenticated;
+revoke all on function public.mr_can_manage(), public.mr_can_kind(text), public.mr_can(), public.mr_whoami(), public.mr_search(text, text, int), public.mr_student_profile(uuid),
   public.mr_staff_profile(uuid), public.mr_log_export(text, uuid) from public, anon;
-grant execute on function public.mr_can(), public.mr_whoami(), public.mr_search(text, text, int), public.mr_student_profile(uuid),
+grant execute on function public.mr_can_manage(), public.mr_can_kind(text), public.mr_can(), public.mr_whoami(), public.mr_search(text, text, int), public.mr_student_profile(uuid),
   public.mr_staff_profile(uuid), public.mr_log_export(text, uuid) to authenticated;

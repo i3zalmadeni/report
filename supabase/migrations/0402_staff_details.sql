@@ -8,7 +8,7 @@
 create or replace function public.mr_staff_extra(p_id uuid) returns jsonb language plpgsql stable security definer set search_path to '' as $$
 declare sp jsonb; dir jsonb; se jsonb;
 begin
-  if not public.mr_can() then return jsonb_build_object('error', 'forbidden'); end if;
+  if not public.mr_can_kind('staff') then return jsonb_build_object('error', 'forbidden'); end if;
   if not exists (select 1 from public.staff_members where id = p_id) then return jsonb_build_object('error', 'not_found'); end if;
   begin
     select coalesce(jsonb_agg(jsonb_build_object('id', r.id, 'col', r.col, 'data', r.data, 'at', public.mr__t(r.created_at)) order by r.created_at), '[]') into sp

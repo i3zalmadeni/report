@@ -69,6 +69,7 @@ bdi,.nw{unicode-bidi:isolate;white-space:nowrap}
   @top-left{font-family:"Tajawal","Noto Naskh Arabic",Tahoma,"DejaVu Sans",sans-serif;font-size:7.6pt;color:#5d7385;vertical-align:bottom;padding-bottom:3mm}
   @bottom-center{content:"صفحة " counter(page) " من " counter(pages);font-family:"Tajawal","Noto Naskh Arabic",Tahoma,"DejaVu Sans",sans-serif;font-size:7.8pt;color:#5d7385;vertical-align:top;padding-top:3mm}
   @bottom-right{font-family:"Tajawal","Noto Naskh Arabic",Tahoma,"DejaVu Sans",sans-serif;font-size:7.4pt;color:#5d7385;vertical-align:top;padding-top:3mm}
+  @bottom-left{font-family:"Tajawal","Noto Naskh Arabic",Tahoma,"DejaVu Sans",sans-serif;font-size:7.4pt;font-weight:700;color:#3d5466;vertical-align:top;padding-top:3mm;text-align:left}
 }
 @media print{
   html,body{background:#fff}

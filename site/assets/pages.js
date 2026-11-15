@@ -4,13 +4,15 @@ const qs = new URLSearchParams(location.search);
 
 // ===== البحث الموحد =====
 PAGES.search = () => boot("search.html", async (main, who) => {
-  let kind = qs.get("k") === "staff" ? "staff" : "student";
+  const kinds = ["student", "staff"].filter((k) => who["can_" + k]);
+  let kind = kinds.includes(qs.get("k")) ? qs.get("k") : kinds[0];
   main.innerHTML = `<section class="mr-hero card">
     <div class="mr-hero-t"><span class="mr-mark" aria-hidden="true">${LOGO}</span><div><h2>الملف الشامل</h2>
     <p class="sub">استعلام موحد عن السجلات والإجراءات المرتبطة بمنسوبي المدرسة والمتعلمين، من أنظمة النواة الرقمية القائمة، في ملف واحد قابل للطباعة.</p></div></div>
     <div class="mr-kind" role="radiogroup" aria-label="نوع الملف">
-      <button type="button" role="radio" data-k="student">${ico("cap")}ملف متعلم</button>
-      <button type="button" role="radio" data-k="staff">${ico("user")}ملف معلم</button></div>
+      ${who.can_student ? `<button type="button" role="radio" data-k="student">${ico("cap")}ملف متعلم</button>` : ""}
+      ${who.can_staff ? `<button type="button" role="radio" data-k="staff">${ico("user")}ملف معلم</button>` : ""}</div>
+    ${kinds.length < 2 ? `<p class="sub sm">صلاحيتك تشمل ${kind === "student" ? "ملفات المتعلمين وتقاريرهم" : "ملفات المعلمين وتقاريرهم"} فقط.</p>` : ""}
     <div class="mr-search">${ico("search")}<input type="search" id="q" autocomplete="off" aria-label="بحث"><span class="mr-cnt" id="cnt" aria-live="polite"></span></div>
     <p class="sub sm" id="hint"></p></section>
     <div id="res" class="mr-res" aria-live="polite"></div>
@@ -64,8 +66,9 @@ function personFields(p, kind) {
 const secNotice = (s) => s.status === "restricted" ? `<p class="mr-note">${ico("eyeoff")}هذا القسم مقيد بصلاحيات النظام المصدر (${esc(s.system)}). ${esc(s.note || "")}</p>`
   : s.status !== "ok" ? `<p class="mr-note bad">${ico("alert")}${esc(s.error || SST[s.status])}. لم تُعرض أي بيانات بديلة.</p>` : "";
 
-PAGES.profile = () => boot("profile.html", async (main) => {
+PAGES.profile = () => boot("profile.html", async (main, who) => {
   const kind = qs.get("k") === "staff" ? "staff" : "student", id = qs.get("id") || "";
+  if (!who["can_" + kind]) { main.innerHTML = `<div class="card"><p class="err">${esc(KIND_DENIED[kind])}</p><a class="btn sec" href="search.html">العودة إلى البحث</a></div>`; return; }
   if (!/^[0-9a-f-]{36}$/i.test(id)) { main.innerHTML = `<div class="card"><p class="err">رابط غير صحيح.</p><a class="btn sec" href="search.html">العودة إلى البحث</a></div>`; return; }
   main.innerHTML = loading("جارٍ جمع السجلات من الأنظمة…");
   const p = await rpc(kind === "student" ? "mr_student_profile" : "mr_staff_profile", { p_id: id });
@@ -129,3 +132,56 @@ PAGES.profile = () => boot("profile.html", async (main) => {
   bindFilter(st, p, render);
   render();
 }, { title: "الملف الشامل", desc: "نافذة موحدة على السجلات الموجودة في الأنظمة" });
+
+// ===== المصرح لهم: من يطّلع على الملفات ويستخرج تقاريرها (مدير النواة ومدير المدرسة ومنسق مرآة) =====
+// كل مربع يُحفظ فور تغييره في صلاحيات النواة، ويُسجَّل في سجل عمليات النواة.
+PAGES.perms = () => boot("perms.html", async (main) => {
+  main.innerHTML = loading("جارٍ تحميل منسوبي المدرسة…");
+  const d = await rpc("mr_perm_list"), L = d.staff;
+  const COLS = [["student", "تقرير المتعلم", "cap", "البحث عن المتعلمين وفتح ملفاتهم الشاملة واستخراج تقاريرها"],
+    ["staff", "تقرير المعلم", "user", "البحث عن منسوبي المدرسة وفتح ملفاتهم الشاملة واستخراج تقاريرها"],
+    ["coord", "منسق مرآة", "key", "يدير هذه القائمة ويطّلع على النوعين. يعيّنه مدير النواة ومدير المدرسة فقط"]];
+  let filter = "", show = "all";
+  main.innerHTML = `<section class="card mr-pm-h">
+      <div class="mr-pm-in"><span class="mr-av" aria-hidden="true">${ico("key")}</span><div><h2>المصرح لهم بالاطلاع واستخراج التقارير</h2>
+      <p class="sub">ضع علامة في الصلاحية المطلوبة لكل منسوب: «تقرير المتعلم» أو «تقرير المعلم» أو كليهما. يُحفظ التغيير فوراً، ويُسجَّل في سجل عمليات النواة الرقمية.</p></div></div>
+      <ul class="mr-pm-legend">${COLS.map(([, n, i, t]) => `<li>${ico(i)}<b>${n}</b><span>${esc(t)}</span></li>`).join("")}</ul>
+      <div class="mr-kpis mr-pm-k" id="pmk"></div>
+    </section>
+    <section class="card mr-pm">
+      <div class="mr-pm-bar"><div class="mr-search mr-search-c">${ico("search")}<input type="search" id="pmq" placeholder="ابحث باسم المنسوب أو مسماه" aria-label="بحث في المنسوبين"></div>
+        <div class="mr-seg" role="radiogroup" aria-label="عرض">${[["all", "الكل"], ["on", "المصرح لهم"], ["off", "غير المصرح لهم"]].map(([k, n]) => `<button type="button" role="radio" data-show="${k}">${n}</button>`).join("")}</div></div>
+      <div class="tw"><table class="mr-t mr-pm-t"><thead><tr><th>المنسوب</th>${COLS.map(([k, n]) => `<th class="c">${n}</th>`).join("")}<th class="st"><span class="vh">حالة الحفظ</span></th></tr></thead><tbody id="pmb"></tbody></table></div>
+      <p class="sub sm mt">مدير النواة الرقمية ومدير المدرسة يطّلعان على كل الملفات بحكم موقعهما. المنسوب الذي لا يملك حساب دخول تسري صلاحيته متى أُنشئ حسابه في النواة.</p>
+    </section>`;
+  const can = (r, k) => !r.leader && (k !== "coord" || d.is_admin);
+  const row = (r) => `<tr data-id="${r.id}" class="${r.leader ? "lead" : ""}">
+      <td><b>${esc(r.name)}</b><small>${[r.job, r.specialty].filter(Boolean).map(esc).join(" · ")}${r.leader ? ` <span class="badge ok">صلاحية كاملة بحكم القيادة</span>` : ""}${r.coord && !r.leader ? ` <span class="badge info">منسق مرآة</span>` : ""}${!r.has_account ? ` <span class="badge warn">لا يملك حساب دخول بعد</span>` : !r.account_active ? ` <span class="badge warn">الحساب غير فعّال</span>` : ""}${r.legacy ? ` <span class="badge">صلاحية اطلاع سابقة على النوعين</span>` : ""}</small></td>
+      ${COLS.map(([k, n]) => { const on = r.leader || (k !== "coord" && r.coord) ? true : r[k], dis = !can(r, k) || (k !== "coord" && r.coord && !r.leader);
+        return `<td class="c" data-l="${n}"><label class="mr-ck"><input type="checkbox" data-p="${k}"${on ? " checked" : ""}${dis ? " disabled" : ""} aria-label="${esc(n + ": " + r.name)}"><span></span></label></td>`; }).join("")}
+      <td class="st" aria-live="polite"></td></tr>`;
+  const draw = () => {
+    const q = normN(filter), vis = L.filter((r) => (!q || normN(r.name + " " + (r.job || "") + " " + (r.specialty || "")).includes(q))
+      && (show === "all" || (show === "on") === !!(r.leader || r.coord || r.student || r.staff)));
+    $("#pmb").innerHTML = vis.length ? vis.map(row).join("") : `<tr><td colspan="5" class="sub">لا يوجد منسوبون مطابقون.</td></tr>`;
+    const n = (f) => L.filter(f).length;
+    $("#pmk").innerHTML = [["منسوباً فعّالاً", L.length, "main"], ["لهم تقرير المتعلم", n((r) => r.leader || r.coord || r.student), "ok"], ["لهم تقرير المعلم", n((r) => r.leader || r.coord || r.staff), "ok"], ["منسق مرآة", n((r) => r.coord && !r.leader), "info"]]
+      .map(([t, v, c]) => `<div class="mr-kpi ${c}"><b>${v}</b><span>${t}</span></div>`).join("");
+    $$("[data-show]").forEach((b) => b.setAttribute("aria-checked", b.dataset.show === show));
+  };
+  const mark = (id, html, ms) => { const c = $(`#pmb tr[data-id="${id}"] .st`); if (!c) return; c.innerHTML = html; if (ms) setTimeout(() => (c.innerHTML = ""), ms); };
+  $("#pmq").addEventListener("input", (e) => { filter = e.target.value; draw(); });
+  $$("[data-show]").forEach((b) => (b.onclick = () => { show = b.dataset.show; draw(); }));
+  $("#pmb").addEventListener("change", async (e) => {
+    const t = e.target; if (!t.dataset.p) return;
+    const tr = t.closest("tr"), r = L.find((x) => x.id === tr.dataset.id), st = $(".st", tr);
+    const want = { student: r.student, staff: r.staff, coord: r.coord, [t.dataset.p]: t.checked };
+    $$("input", tr).forEach((x) => (x.disabled = true)); st.innerHTML = `<span class="mr-sv">جارٍ الحفظ…</span>`;
+    try {
+      const res = await rpc("mr_perm_set", { p_staff_id: r.id, p_student: want.student, p_staff: want.staff, p_coord: t.dataset.p === "coord" ? want.coord : null });
+      Object.assign(r, { student: res.student, staff: res.staff, coord: res.coord, legacy: false });
+      draw(); mark(r.id, `<span class="mr-sv ok">${ico("check")}حُفظ</span>`, 2500);
+    } catch (err) { draw(); mark(r.id, `<span class="mr-sv bad">${esc(mapErr(err))}</span>`); }
+  });
+  draw();
+}, { title: "المصرح لهم", desc: "من يطّلع على الملفات الشاملة ويستخرج تقارير المتعلمين والمعلمين", manage: true });

@@ -135,6 +135,8 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
     const txt = N(sh("pdftotext", ["-layout", pdf, "-"])), pg = txt.split("\f").filter((x) => x.trim());
     ok(pg.length === pages, `[${n}] ${pages} صفحة`);
     ok(pg.every((t, i) => t.includes("مرآة | الملف الشامل") && new RegExp(`صفحة\\s*${i + 1}\\s*من\\s*${pages}`).test(t)), `[${n}] رأس وترقيم «صفحة س من ص» في كل صفحة`);
+    const by = N("صدر التقرير من حساب: مدير الاختبار");
+    ok(pg.every((t) => t.replace(/\s+/g, "").includes(by.replace(/\s+/g, ""))), `[${n}] كل صفحة مذيلة باسم الحساب الذي صدر منه التقرير`);
     ok(txt.includes(n === "staff" ? "إبراهيم المعلم" : n === "stress" ? "عبدالرحمن بن خالد" : "أحمد عبدالله الحربي"), `[${n}] النص العربي قابل للاستخراج بترتيب صحيح`);
     // لا يبقى عنوان قسم أو مجموعة في آخر الصفحة دون محتواه
     const heads = (await p.$$eval(".rp-g, .rp-h, .rp-t caption b", (l) => l.map((e) => e.textContent.trim()))).map(N);
@@ -142,7 +144,7 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
       .filter((last) => heads.some((h) => last === h || last === h.replace(/^(أولاً|ثانياً|ثالثاً): /, "")));
     ok(orphan.length === 0, `[${n}] لا عناوين يتيمة في نهاية الصفحات: ${orphan.join(" | ")}`);
     // بطاقة التعريف في صفحة واحدة
-    ok(pg[0].includes("الموحد") && pg[0].includes("بتوقيت الرياض"), `[${n}] بطاقة التعريف كاملة في الصفحة الأولى`);
+    ok(pg[0].includes("الموحد") && pg[0].includes("بتوقيت") && pg[0].includes("الرياض"), `[${n}] بطاقة التعريف كاملة في الصفحة الأولى`);
     if (n === "stress") {
       ok(pages >= 3, `[stress] الجداول الطويلة تنتقل عبر ${pages} صفحات`);
       const thPages = pg.filter((t) => /الوصول/.test(t)).length;
@@ -208,6 +210,44 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
     if (pg.startsWith("report.html")) { await p.click('#pk .mr-ar:last-child [data-acc]'); ok(await p.isVisible("#pk .mr-ar:last-child [data-k]"), "[جوال] آخر نظام في لوحة التقرير قابل للوصول والفتح"); }
     ok(p.errs.length === 0, `[جوال] لا أخطاء JavaScript في ${pg.split("?")[0]}: ` + p.errs.join(" | "));
   }
+
+  // 8) المصرح لهم: لوحة إدارة صلاحيتي تقرير المتعلم وتقرير المعلم
+  p = await open(U.viewer); await p.goto(`${BASE}/search.html`); await p.waitForSelector("#q");
+  ok(!(await p.$('a[href="perms.html"]')), "المطّلع لا يرى رابط المصرح لهم");
+  await p.goto(`${BASE}/perms.html`); await p.waitForSelector("text=لوحة المصرح لهم");
+  ok(!(await p.$("#pmb")), "ولا يفتح اللوحة مباشرة");
+  p = await open(U.admin); await p.goto(`${BASE}/search.html`); await p.click('a[href="perms.html"]'); await p.waitForSelector("#pmb tr[data-id]");
+  ok((await p.$$("#pmb tr[data-id]")).length === +psql("select count(*) from staff_members where is_active"), "اللوحة تعرض كل منسوبي المدرسة الفعّالين");
+  ok(await p.$eval('#pmb tr.lead input[data-p="student"]', (b) => b.checked && b.disabled), "المدير محدد ومقفل بحكم القيادة");
+  const TR = `#pmb tr[data-id="${T3}"]`;
+  ok(await p.$$eval(`${TR} input`, (l) => l.every((b) => !b.checked && !b.disabled)), "المعلم بلا صلاحية، ومربعاته قابلة للتعديل");
+  await shot(p, "08-perms");
+  await p.click(`${TR} [data-p="student"]`); await p.waitForSelector(`${TR} .mr-sv.ok`);
+  ok(psql(`select string_agg(permission_code, ',') from staff_permissions where staff_id = '${T3}'`) === "mirat:view_student", "منح «تقرير المتعلم» يُحفظ في صلاحيات النواة");
+  ok(+psql("select count(*) from audit_logs where action = 'PERMISSION'") >= 1, "المنح مسجل في سجل العمليات");
+  await p.fill("#pmq", "ابراهيم"); ok((await p.$$("#pmb tr[data-id]")).length === 1, "البحث في المنسوبين بتوحيد الهمزة");
+  await p.click('[data-show="off"]'); ok(!(await p.$(TR)), "تصفية «غير المصرح لهم» تخفي من مُنح الآن");
+  ok(p.errs.length === 0, "لا أخطاء JavaScript في المصرح لهم: " + p.errs.join(" | "));
+  // المعلم الآن: ملفات المتعلمين فقط
+  p = await open(U.teacher); await p.goto(`${BASE}/search.html`); await p.waitForSelector("#q");
+  ok((await p.$$("[data-k]")).length === 1 && (await p.textContent(".mr-kind")).includes("ملف متعلم"), "المعلم يرى البحث عن المتعلمين فقط");
+  await p.goto(`${BASE}/profile.html?k=staff&id=${T3}`); await p.waitForSelector("text=تقرير المعلم");
+  ok(!(await p.$("#tl")), "ولا يفتح ملف معلم");
+  await p.goto(`${BASE}/report.html?k=student&id=${S1}`); await p.waitForFunction(() => window.__ready === true);
+  ok((await p.textContent(".rp-end")).includes("صدر هذا التقرير من حساب: إبراهيم المعلم"), "التقرير يذكر اسم صاحب الحساب الذي استخرجه");
+  await p.emulateMedia({ media: "print" }); await p.pdf({ path: `${OUT}/report-by-teacher.pdf`, preferCSSPageSize: true });
+  const tt = N(sh("pdftotext", ["-layout", `${OUT}/report-by-teacher.pdf`, "-"])).split("\f").filter((x) => x.trim());
+  ok(tt.every((t) => t.includes(N("إبراهيم المعلم"))), `تذييل كل صفحات تقرير المعلم باسم حسابه (${tt.length} صفحة)`);
+  await p.emulateMedia({ media: "screen" }); await p.goto(`${BASE}/report.html?k=staff&id=${T3}`); await p.waitForSelector("#rpst.bad");
+  ok((await p.textContent("#rpst")).includes("تقرير المعلم") && !(await p.$("#doc .sheet")), "ولا يستخرج تقرير معلم");
+  // سحب الصلاحية من اللوحة
+  p = await open(U.admin); await p.goto(`${BASE}/perms.html`); await p.waitForSelector(`${TR} input`);
+  await p.click(`${TR} [data-p="student"]`); await p.waitForSelector(`${TR} .mr-sv.ok`);
+  ok(psql(`select count(*) from staff_permissions where staff_id = '${T3}'`) === "0", "سحب الصلاحية يحذفها من النواة");
+  p = await open(U.admin, 390, 844); await p.goto(`${BASE}/perms.html`); await p.waitForSelector("#pmb tr[data-id]");
+  ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "[جوال] perms.html بلا تمرير أفقي");
+  ok(await p.$$eval("#pmb .mr-ck", (l) => l.every((x) => x.getBoundingClientRect().height >= 44)), "[جوال] مربعات الصلاحيات بحجم لمس مناسب");
+  await p.screenshot({ path: `${OUT}/08-perms-mobile.png`, fullPage: true });
 
   await br.close();
   console.log(fails ? `\n${fails} FAILED` : "\nALL E2E PASSED");
