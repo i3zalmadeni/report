@@ -48,7 +48,7 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
   ok(await p.isVisible('.dnav a.on:has-text("ملفي")') && !(await p.$('.dnav a[href="search.html"]')) && !(await p.$('.dnav a[href="perms.html"]')), "الشريط: «ملفي» فقط، دون البحث والصلاحيات");
   ok((await p.textContent(".mr-id")).includes("4455667"), "يرى رقمه الوظيفي في ملفه");
   ok((await p.textContent("#ubAv")) === "إ" && (await p.getAttribute(".ub-u", "href")).includes(T3a) && (await p.textContent(".ub-nm")) === "إبراهيم المعلم", "الشريط: صورة المستخدم (أو أول حرف من اسمه) ثم اسمه الأول والأخير، وتفتح ملفه");
-  ok(await p.evaluate(() => { const b = [...document.querySelector(".dnav .ub").children].map((e) => e.className.split(" ")[0]); return b.join(",") === "ub-n,ub-u,ub-out"; }) && (await p.textContent("#out")).includes("خروج") && !!(await p.$("#out svg")), "ترتيب آخر الشريط: الإشعارات، ثم الصورة والاسم، ثم أيقونة «خروج»");
+  ok(await p.evaluate(() => { const b = [...document.querySelector(".dnav .ub").children].map((e) => e.className.split(" ")[0]); return b.join(",") === "ub-n,ub-n,ub-u,ub-out"; }) && (await p.textContent("#out")).includes("خروج") && !!(await p.$("#out svg")), "ترتيب آخر الشريط: الإشعارات، ثم الصورة والاسم، ثم أيقونة «خروج»");
   await p.click("#ubB"); await p.waitForSelector("#ubP:not([hidden]) .ub-empty:has-text('لا إشعارات')");
   ok(await p.isHidden("#ubC") && (await p.getAttribute("#ubA", "href")) === "inbox.html" && await p.isVisible("#ubA"), "قائمة الإشعارات تُفتح، و«مشاهدة الكل» تفتح صفحة الإشعارات");
   await p.keyboard.press("Escape"); ok(await p.isHidden("#ubP"), "Esc يغلق القائمة");
@@ -278,6 +278,15 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
   ok((await p.inputValue("#q")) === "احمد" && (await p.$$(".mr-hit")).length >= 1, "البحث السريع ينقل إلى البحث بالكلمة ويعرض النتائج");
   await p.goto(`${BASE}/desk.html`); await p.click('a.mr-more[href^="log.html"]'); await p.waitForSelector("#lb tr td .badge");
   ok(/^\d{4}-\d{2}-\d{2}$/.test(await p.inputValue("#ff")) && (await p.inputValue("#ff")) === (await p.inputValue("#ft")), "«سجلات المشاهدة» من نشاط اليوم تفتح مصفّاة باليوم");
+  // مبدّل الأنظمة بجوار الجرس
+  ok(await p.evaluate(() => [...document.querySelector(".dnav .ub").children].map((e) => e.querySelector("button")?.id || e.className.split(" ")[0]).join(",") === "ubS,ubB,ub-u,ub-out"), "الترتيب: مبدّل الأنظمة، الإشعارات، الصورة والاسم، الخروج");
+  await p.click("#ubS"); await p.waitForSelector("#ubSP:not([hidden]) .ub-sys");
+  const sys = await p.$$eval("#ubSP .ub-sys", (l) => l.map((a) => [a.getAttribute("href"), a.querySelector("b").textContent]));
+  ok(sys.length === 8 && sys.map((x) => x[0]).join(" ") === "/digital-core/dashboard.html /self-evaluation/admin.html /smart-plans/#dashboard /teachers-community/#/home /indibati/dashboard.html /qiyami/dashboard.html /facility-booking/dashboard.html /report/desk.html", "مبدّل الأنظمة: الأنظمة الثمانية بروابط لوحات تحكمها");
+  await p.click("#ubB"); ok(await p.isHidden("#ubSP") && await p.isVisible("#ubP"), "فتح الإشعارات يغلق المبدّل (قائمة واحدة مفتوحة)");
+  await p.click("#ubS"); ok(await p.isHidden("#ubP") && await p.isVisible("#ubSP"), "وفتح المبدّل يغلق الإشعارات");
+  await shot(p, "12-switcher"); await p.screenshot({ path: `${OUT}/12-switcher-top.png`, clip: { x: 0, y: 0, width: 1280, height: 640 } });
+  await p.keyboard.press("Escape"); ok(await p.isHidden("#ubSP") && (await p.evaluate(() => document.activeElement.id)) === "ubS", "Esc يغلق المبدّل ويعيد التركيز إلى زره");
   ok(p.errs.length === 0, "لا أخطاء JavaScript في مكتبي: " + p.errs.join(" | "));
   p = await open(U.teacher); await p.goto(`${BASE}/desk.html`); await p.waitForSelector(".mr-tile");
   ok(p.url().includes("desk.html") && (await p.$$(".mr-tile")).length === 2 && !(await p.$("#dq")) && !(await p.$("#dact")), "المنسوب بلا صلاحية: مكتبه بملفه والإشعارات فقط، دون بحث ولا نشاط");
