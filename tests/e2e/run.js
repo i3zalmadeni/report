@@ -50,7 +50,7 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
   ok((await p.textContent("#ubAv")) === "إ" && (await p.getAttribute(".ub-u", "href")).includes(T3a) && (await p.textContent(".ub-nm")) === "إبراهيم المعلم", "الشريط: صورة المستخدم (أو أول حرف من اسمه) ثم اسمه الأول والأخير، وتفتح ملفه");
   ok(await p.evaluate(() => { const b = [...document.querySelector(".dnav .ub").children].map((e) => e.className.split(" ")[0]); return b.join(",") === "ub-n,ub-u,ub-out"; }) && (await p.textContent("#out")).includes("خروج") && !!(await p.$("#out svg")), "ترتيب آخر الشريط: الإشعارات، ثم الصورة والاسم، ثم أيقونة «خروج»");
   await p.click("#ubB"); await p.waitForSelector("#ubP:not([hidden]) .ub-empty:has-text('لا إشعارات')");
-  ok(await p.isHidden("#ubC") && await p.isHidden("#ubA"), "قائمة الإشعارات تُفتح، ولا «مشاهدة الكل» لمن لا يملك صفحة سجلات");
+  ok(await p.isHidden("#ubC") && (await p.getAttribute("#ubA", "href")) === "inbox.html" && await p.isVisible("#ubA"), "قائمة الإشعارات تُفتح، و«مشاهدة الكل» تفتح صفحة الإشعارات");
   await p.keyboard.press("Escape"); ok(await p.isHidden("#ubP"), "Esc يغلق القائمة");
   await shot(p, "02-self-profile");
   await p.goto(`${BASE}/profile.html?k=student&id=${S1}`); await p.waitForURL(/k=staff/); await p.waitForSelector("#tl");
@@ -269,8 +269,22 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
   await shot(p, "08b-bell");
   // 9) سجلات المشاهدة
   p = await open(U.admin); await p.goto(`${BASE}/search.html`); await p.click("#ubB"); await p.waitForSelector("#ubP .ub-it");
-  ok(await p.isVisible('#ubA[href="log.html"]') && (await p.textContent("#ubL")).includes("اطّلع إبراهيم المعلم"), "إشعارات المدير: نشاط الآخرين، و«مشاهدة الكل» تفتح سجلات المشاهدة");
-  await p.click("#ubA"); await p.waitForURL(/log\.html/); await p.goto(`${BASE}/search.html`); await p.click('a[href="log.html"]'); await p.waitForSelector("#lb tr td .badge");
+  ok(await p.isVisible('#ubA[href="inbox.html"]') && (await p.textContent("#ubL")).includes("اطّلع إبراهيم المعلم"), "إشعارات المدير: نشاط الآخرين، و«مشاهدة الكل» ظاهرة");
+  await p.click("#ubA"); await p.waitForURL(/inbox\.html/); await p.waitForSelector("#ubgL .ubg-it");
+  ok((await p.textContent(".pagebar h1")) === "الإشعارات" && (await p.$$("#ubgL .ubg-it")).length === 12 && (await p.$$("#ubgL .ubg-d")).length >= 1 && (await p.textContent("#ubgL")).includes("اطّلع إبراهيم المعلم"), "صفحة الإشعارات تعرض كل الإشعارات مجمّعة بالأيام");
+  const un0 = +(await p.textContent("#ubgK .n b"));
+  await p.click('[data-ubf="new"]'); ok((await p.$$("#ubgL .ubg-it")).length === un0, "تصفية غير المقروء");
+  await p.click('[data-ubt="bad"]'); ok(await p.$$eval("#ubgL .ubg-it", (l) => l.every((x) => x.classList.contains("bad"))), "تصفية النوع");
+  await p.click('[data-ubt="all"]'); await p.click('[data-ubf="all"]'); await p.fill("#ubgQ", "صدّر"); ok(await p.$$eval("#ubgL .ubg-it", (l) => l.length === 1 && l[0].textContent.includes("صدّر")), "البحث في الإشعارات");
+  await p.fill("#ubgQ", ""); await p.click("#ubgR"); await p.waitForTimeout(200);
+  ok((await p.textContent("#ubgK .n b")) === "0" && await p.isHidden("#ubC"), "تحديد الكل كمقروء في الصفحة يُصفّر عدّاد الجرس أيضاً");
+  await shot(p, "10-inbox");
+  ok(p.errs.length === 0, "لا أخطاء JavaScript في صفحة الإشعارات: " + p.errs.join(" | "));
+  p = await open(U.teacher); await p.goto(`${BASE}/inbox.html`); await p.waitForSelector("#ubgL .ubg-it");
+  ok(p.url().includes("inbox.html") && (await p.textContent("#ubgL")).includes("صلاحياتك"), "المنسوب بلا صلاحية يفتح صفحة إشعاراته (لا يُحوَّل إلى ملفه)");
+  p = await open(U.admin, 390, 844); await p.goto(`${BASE}/inbox.html`); await p.waitForSelector("#ubgL .ubg-it");
+  ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "[جوال] inbox.html بلا تمرير أفقي"); await p.screenshot({ path: `${OUT}/10-inbox-mobile.png`, fullPage: false });
+  p = await open(U.admin); await p.goto(`${BASE}/search.html`); await p.click('a[href="log.html"]'); await p.waitForSelector("#lb tr td .badge");
   const nLog = +psql("select count(*) from audit_logs where table_name like 'mirat.%'");
   ok((await p.textContent("#lk .mr-kpi.main b")) === String(nLog), `السجل يعرض كل عمليات مرآة (${nLog})`);
   ok((await p.textContent("#lb")).includes("إبراهيم المعلم") && (await p.textContent("#lb")).includes("ملفه الشخصي"), "اطلاع المنسوب على ملفه يظهر باسمه");

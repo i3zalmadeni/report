@@ -140,7 +140,7 @@ async function boot(page, render, o = {}) {
   let who;
   try { who = await rpc("mr_whoami"); } catch (e) { console.error(e); fail(mapErr(e)); return; }
   if (!who) { await doLogout("login.html?e=nostaff"); return; }
-  if (!who.can && !((page === "profile.html" || page === "report.html") && isOwnFile(who))) { location.replace(myFile(who)); return; }
+  if (!who.can && page !== "inbox.html" && !((page === "profile.html" || page === "report.html") && isOwnFile(who))) { location.replace(myFile(who)); return; }
   window.__mr = who;
   if (o.bare) { await render(shell, who); return; }
   if (o.manage && !who.manage) { fail("هذه الصفحة لمدير النواة الرقمية ومدير المدرسة ومنسق مرآة فقط.", true); return; }
@@ -158,8 +158,8 @@ async function boot(page, render, o = {}) {
   document.title = (o.title || "الملف الشامل") + " – مرآة";
   $("#out").onclick = (e) => { e.preventDefault(); doLogout(); };
   // الإشعارات: تعديلات صلاحياتك في مرآة، ولمن يدير مرآة آخر العمليات من غيره، و«مشاهدة الكل» سجلات المشاهدة
-  ubMount({ key: "mr", uid: who.staff_id, allUrl: who.manage ? "log.html" : null, load: async () => {
-    const L = await rpc("mr_my_notifications", { p_limit: 20 }), P = (a) => (a && a.length ? a.map((c) => PERM_AR[c] || c).join("، ") : "لا شيء");
+  ubMount({ key: "mr", uid: who.staff_id, allUrl: "inbox.html", load: async () => {
+    const L = await rpc("mr_my_notifications", { p_limit: 50 }), P = (a) => (a && a.length ? a.map((c) => PERM_AR[c] || c).join("، ") : "لا شيء");
     const K = (r) => (r.kind === "student" ? "ملف المتعلم" : "ملف المعلم");
     return (L || []).map((r) => r.mine
       ? { id: r.id, t: r.at, tone: "warn", icon: "key", href: who.can ? "search.html" : myFile(who), title: `عدّل ${r.actor} صلاحياتك في مرآة`, body: `صلاحياتك الآن: ${P(r.new)}` }
