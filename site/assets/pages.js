@@ -257,8 +257,7 @@ PAGES.desk = () => boot("desk.html", async (main, who) => {
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Riyadh" });
   const tile = (href, icon, t, d, extra = "") => `<a class="mr-tile card" href="${esc(href)}"><span class="mr-av" aria-hidden="true">${ico(icon)}</span><span class="mr-tile-t"><b>${t}${extra}</b><small>${d}</small></span>${ico("arrow")}</a>`;
   main.innerHTML = `<section class="card mr-desk-h">
-      <div class="mr-pm-in"><span class="mr-av" aria-hidden="true">${ico("home")}</span><div><h2>مكتبي الإلكتروني</h2>
-      <p class="sub">${fmtD(today)}</p></div></div>
+      
       ${kinds.length ? `<form class="mr-desk-q" id="dq" role="search"><div class="mr-seg" role="radiogroup" aria-label="نوع الملف">${kinds.map((k, i) => `<button type="button" role="radio" data-dk="${k}" aria-checked="${i === 0}">${ico(k === "student" ? "cap" : "user")}${k === "student" ? "متعلم" : "معلم"}</button>`).join("")}</div>
         <div class="mr-search mr-search-c">${ico("search")}<input type="search" id="dqi" placeholder="ابحث بالاسم أو الرقم" aria-label="بحث سريع"></div><button class="btn" type="submit">بحث</button></form>` : ""}
     </section>
