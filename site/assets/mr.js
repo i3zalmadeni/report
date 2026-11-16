@@ -156,6 +156,10 @@ async function boot(page, render, o = {}) {
      <div class="pb-u"><span>${esc(fmtHijri(todayISO()))}</span></div></div></div>
      <main class="wrap" id="main"></main>${footerHTML}`;
   bindNav();
+  if (window.PK && page === "perms.html") PK.mountAdminSection({ sb, system: "mirat", central: false, after: "#main" });
+  if (window.PK) { PK.fitNav(document.querySelector(".dnav-in"));
+    PK.mountAnnouncements({ sb, system: "mirat", page: page === "desk.html" ? "home" : "all", before: ".pagebar" });
+    if (page === "desk.html") PK.welcome("#main", { mode: "before", sb, name: who.name, role: role }); }
   document.title = (o.title || "الملف الشامل") + " – مرآة";
   $("#out").onclick = (e) => { e.preventDefault(); doLogout(); };
   // الإشعارات: تعديلات صلاحياتك في مرآة، ولمن يدير مرآة آخر العمليات من غيره، و«مشاهدة الكل» سجلات المشاهدة
