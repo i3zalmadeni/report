@@ -71,7 +71,7 @@ PAGES.report = () => boot("report.html", async (root, who) => {
     <section class="rp-card">
       <div class="rp-card-h"><h2>${esc(P.name)}</h2><span>${kind === "student" ? "متعلم" : "معلم"}</span></div>
       <table class="rp-kv"><tbody>${pairs([["المعرّف الموحد", `<bdi dir="ltr" class="uuid">${esc(P.id)}</bdi>`], ...fields, ["تاريخ الاستخراج", `<bdi>${esc(p.generated_at)}</bdi> بتوقيت الرياض`]])}</tbody></table>
-      ${P.pro?.headline ? `<p class="rp-pro"><b>الملف المهني (مجتمع لبيد المهني):</b> ${esc(P.pro.headline)}${(P.pro.subjects || []).length ? " · المواد: " + esc(P.pro.subjects.join("، ")) : ""}</p>` : ""}
+      ${P.pro?.headline ? `<p class="rp-pro"><b>الملف المهني (المجتمع المهني الذكي):</b> ${esc(P.pro.headline)}${(P.pro.subjects || []).length ? " · المواد: " + esc(P.pro.subjects.join("، ")) : ""}</p>` : ""}
     </section>
 
     ${custom ? `<p class="rp-note rp-custom">تقرير مخصص: يتضمن ${m.secs.length} قسماً من ${p.sections.length} في الملف الشامل، وفق اختيار المستخرج${[["sum", "الملخص العام"], ["det", "الأقسام التفصيلية"], ["tl", "السجل الزمني الموحد"]].filter(([k]) => !PART[k]).map(([, t]) => "، ودون " + t).join("")}.</p>` : ""}
