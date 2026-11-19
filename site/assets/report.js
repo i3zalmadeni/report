@@ -10,7 +10,9 @@ PAGES.report = () => boot("report.html", async (root, who) => {
   root.innerHTML = `<div class="rp-bar no-print"><div class="rp-bar-in"><b>معاينة التقرير</b><span id="rpst" class="rp-st">جارٍ جمع السجلات…</span>
     <span class="sp"></span><button class="rb sec" id="pick" type="button" aria-expanded="false" aria-controls="pk" disabled>محتوى التقرير <span id="pkc"></span></button><a class="rb sec" href="profile.html?k=${kind}&id=${encodeURIComponent(id)}">العودة إلى الملف</a><button class="rb" id="go" disabled>تصدير الملف الشامل PDF</button></div>
     <div id="pk" class="rp-pick" hidden></div>
-    <p class="rp-tip">في نافذة الطباعة اختر «حفظ بتنسيق PDF»، والمقاس A4، والاتجاه عمودي، والهوامش «الافتراضية»، وألغِ خيار «الرؤوس والتذييلات» الخاص بالمتصفح. أفضل نتيجة من متصفح Chrome أو Edge.</p></div>
+    <div class="rp-sub"><div class="rp-vw" role="group" aria-label="طريقة عرض التقرير"><button type="button" data-vw="pages">${"صفحات الطباعة"}</button><button type="button" data-vw="read">عرض للقراءة</button></div>
+      <p class="rp-tip">يُصدَّر بالهوية الموحدة للنواة الرقمية: الترويسة والتذييل ورقم الصفحة في كل صفحة، ورقم التقرير ورمز التحقق يُنشآن عند التصدير. في نافذة الطباعة اختر «حفظ بتنسيق PDF».</p></div></div>
+    <div id="pv" class="rp-pv" aria-live="polite"></div>
     <div id="doc" class="rp-doc"></div>`;
   if (!/^[0-9a-f-]{36}$/i.test(id)) { $("#rpst").textContent = "رابط غير صحيح."; return; }
   if (!who["can_" + kind] && !(kind === "staff" && id === who.staff_id)) { $("#rpst").textContent = KIND_DENIED[kind]; $("#rpst").classList.add("bad"); return; }
@@ -53,11 +55,46 @@ PAGES.report = () => boot("report.html", async (root, who) => {
   const openPick = (o) => { pk.hidden = !o; pickBtn.setAttribute("aria-expanded", String(o)); };
   pickBtn.onclick = () => openPick(pk.hidden);
   const fields = personFields(p, kind);
-  let m;
+  let m, STAT = "";
+  /* ===== طريقة العرض: «صفحات الطباعة» تعرض صفحات ReportKit نفسها التي ستُطبع، و«عرض للقراءة» ورقة متدفقة تناسب الجوال ===== */
+  const VWK = "mr-report-view";
+  let VW = (() => { try { return localStorage.getItem(VWK); } catch (_) { return null; } })() || (innerWidth < 700 ? "read" : "pages");
+  const setVW = (v, keep) => { VW = v; if (!keep) try { localStorage.setItem(VWK, v); } catch (_) {}
+    root.classList.toggle("vw-pages", v === "pages"); root.classList.toggle("vw-read", v === "read");
+    $$("[data-vw]", root).forEach((b) => { b.classList.toggle("on", b.dataset.vw === v); b.setAttribute("aria-pressed", String(b.dataset.vw === v)); });
+    if (v === "pages") queuePages(true); };
+  let pvT = 0, pvSeq = 0, pvKey = "";
+  const queuePages = (now) => { clearTimeout(pvT); if (VW !== "pages") return; pvT = setTimeout(renderPages, now ? 0 : 350); };
+  const PW = 840; // عرض إطار المعاينة بالبكسل: صفحة A4 مع حاشيتها، ثابت حتى لا تنطبق قواعد الجوال على الصفحات
+  const fitPv = () => { const pv = $("#pv"), fr = pv && pv.querySelector("iframe"); if (!fr || !fr.contentDocument) return;
+    const z = Math.min(1, (pv.clientWidth - 4) / PW), h = fr.contentDocument.documentElement.scrollHeight;
+    fr.style.height = h + "px"; fr.style.transform = `scale(${z})`; pv.querySelector(".pv-box").style.height = Math.ceil(h * z) + "px"; pv.querySelector(".pv-box").style.width = Math.ceil(PW * z) + "px"; };
+  const renderPages = async () => {
+    const pv = $("#pv"), seq = ++pvSeq;
+    if ($("#go").disabled && !m) return;
+    if (!window.ReportKit || !ReportKit.preview) { pv.innerHTML = `<p class="rp-note">تعذر تحميل أداة الطباعة الموحدة، فيُعرض التقرير للقراءة.</p>`; return setVW("read", true); }
+    const o = rkOpts(), key = o.body; if (key === pvKey && pv.querySelector("iframe")) return fitPv();
+    pv.classList.add("ld"); $("#rpst").textContent = "جارٍ تجهيز صفحات الطباعة…";
+    let html; try { html = await ReportKit.preview(o); } catch (e) { console.error(e); html = null; }
+    if (seq !== pvSeq) return;
+    pv.classList.remove("ld");
+    if (!html) { pv.innerHTML = `<p class="rp-note">تعذر تجهيز صفحات الطباعة، فيُعرض التقرير للقراءة.</p>`; $("#rpst").textContent = STAT; return setVW("read", true); }
+    pvKey = key;
+    pv.innerHTML = `<div class="pv-box"><iframe title="معاينة صفحات التقرير كما ستُطبع" scrolling="no" style="width:${PW}px"></iframe></div>`;
+    const fr = pv.querySelector("iframe");
+    fr.onload = () => { const d = fr.contentDocument; const st = d.createElement("style"); st.textContent = "html,body{background:transparent!important;overflow:hidden}#rkRoot{padding:6mm 0!important}#rkRoot .rk-page{margin:0 auto 14mm!important}"; d.head.appendChild(st);
+      const n = d.querySelectorAll(".rk-page").length; $("#rpst").textContent = `${STAT} · ${n} ${n > 2 && n < 11 ? "صفحات" : "صفحة"}`; fitPv(); setTimeout(fitPv, 400); };
+    fr.srcdoc = html;
+  };
+  addEventListener("resize", () => { clearTimeout(fitPv.t); fitPv.t = setTimeout(fitPv, 120); });
+  $$("[data-vw]", root).forEach((b) => (b.onclick = () => setVW(b.dataset.vw)));
   const draw = () => {
   m = model({ ...p, sections: p.sections.filter((s) => SEL.has(s.key)) });
   const ORD = ["أولاً", "ثانياً", "ثالثاً"]; let oi = 0;
   const custom = SEL.size < p.sections.length || !PART.sum || !PART.det || !PART.tl;
+  const mapRows = m.secs.filter((s) => s.n > 0 || s.status !== "ok"), zeroSecs = m.secs.filter((s) => s.status === "ok" && !s.n);
+  const distM = {}; m.secs.forEach((s) => { if (s.n > 0) distM[s.system] = (distM[s.system] || 0) + s.n; });
+  const dist = Object.entries(distM).sort((a, b) => b[1] - a[1]), distMax = Math.max(1, ...dist.map((x) => x[1]));
   const okSecs = m.secs.filter((s) => s.n > 0), emptySecs = m.secs.filter((s) => s.status === "ok" && !s.n);
   const groups = GROUPS[kind].map(([g, n]) => ({ n, secs: okSecs.filter((s) => s.grp === g) })).filter((x) => x.secs.length);
   $("#doc").innerHTML = `
@@ -79,8 +116,10 @@ PAGES.report = () => boot("report.html", async (root, who) => {
       <h2 class="rp-h">${ORD[oi++]}: الملخص العام</h2>
       <div class="rp-kpis"><div><b>${m.total}</b><span>سجلاً مرتبطاً</span></div><div><b>${m.withData}</b><span>قسماً فيه بيانات من ${m.secs.length}</span></div>
         ${m.ind.map(([n, v]) => `<div><b>${esc(v)}</b><span>${esc(n)}</span></div>`).join("")}</div>
-      <table class="rp-t rp-map"><thead><tr><th>القسم</th><th>النظام المصدر</th><th>عدد السجلات</th></tr></thead>
-        <tbody>${m.secs.map((s) => `<tr><td>${esc(s.title)}</td><td>${esc(s.system)}</td><td>${s.status === "ok" ? s.n : esc(SST[s.status])}</td></tr>`).join("")}</tbody></table>
+      ${dist.length ? `<h3 class="rp-g">توزيع السجلات حسب النظام</h3><div class="rp-dist">${dist.map(([n, v]) => `<div><span class="nm">${esc(n)}</span><span class="br"><i style="width:${Math.max(3, Math.round((100 * v) / distMax))}%"></i></span><b>${v}</b></div>`).join("")}</div>` : ""}
+      ${mapRows.length ? `<h3 class="rp-g">الأقسام التي فيها سجلات · ${mapRows.length}</h3><table class="rp-t rp-map"><thead><tr><th>القسم</th><th>النظام المصدر</th><th>عدد السجلات</th></tr></thead>
+        <tbody>${mapRows.map((s) => `<tr><td>${esc(s.title)}</td><td>${esc(s.system)}</td><td>${s.status === "ok" ? s.n : esc(SST[s.status])}</td></tr>`).join("")}</tbody></table>` : ""}
+      ${zeroSecs.length ? `<p class="rp-note">أقسام لا سجلات فيها حالياً (${zeroSecs.length}): ${zeroSecs.map((s) => esc(s.title)).join("، ")}.</p>` : ""}
       ${m.issues.length ? `<p class="rp-warn">تنبيه: تعذرت القراءة من ${m.issues.map((s) => esc(s.title + " (" + s.system + ")")).join("، ")} وقت الاستخراج، فلا يتضمن التقرير سجلاتها.</p>` : ""}
       ${m.restricted.length ? `<p class="rp-note">أقسام لم تُعرض لأنها مقيدة بصلاحيات أنظمتها: ${m.restricted.map((s) => esc(s.title)).join("، ")}.</p>` : ""}
     </section>` : ""}
@@ -95,7 +134,7 @@ PAGES.report = () => boot("report.html", async (root, who) => {
           ${s.rows.some((r) => r.dup) ? `<p class="rp-fn">القيود المظللة تقابل أحداثاً واردة في أقسامها الأصلية، ولم تُكرر في السجل الزمني.</p>` : ""}
           ${s.note ? `<p class="rp-fn">${esc(s.note)}</p>` : ""}
         </section>`).join("")}`).join("") : `<p class="rp-note">لا توجد سجلات مرتبطة بهذا الملف في الأنظمة المتاحة.</p>`}
-      ${emptySecs.length ? `<p class="rp-note">أقسام لا تتوفر فيها بيانات حالياً: ${emptySecs.map((s) => esc(s.title) + " (" + esc(s.system) + ")").join("، ")}.</p>` : ""}
+      ${emptySecs.length && !PART.sum ? `<p class="rp-note">أقسام لا تتوفر فيها بيانات حالياً: ${emptySecs.map((s) => esc(s.title) + " (" + esc(s.system) + ")").join("، ")}.</p>` : ""}
     </section>` : ""}
 
     ${PART.tl ? `<section class="rp-block">
@@ -112,9 +151,11 @@ PAGES.report = () => boot("report.html", async (root, who) => {
   const empty = !SEL.size || (!PART.sum && !PART.det && !PART.tl);
   $("#go").disabled = empty;
   $("#rpst").classList.remove("bad");
-  $("#rpst").textContent = empty ? "اختر قسماً واحداً وجزءاً واحداً على الأقل من محتوى التقرير." : `${m.secs.length} قسماً · ${m.total} سجلاً · ${m.tl.length} حدثاً في السجل الزمني`;
+  STAT = empty ? "اختر قسماً واحداً وجزءاً واحداً على الأقل من محتوى التقرير." : `${m.secs.length} قسماً · ${m.total} سجلاً · ${m.tl.length} حدثاً في السجل الزمني`;
+  $("#rpst").textContent = STAT;
+  queuePages();
   };
-  draw(); syncBoxes();
+  setVW(VW, true); draw(); syncBoxes();
   if (qs.get("pick") === "1") openPick(true);
   await (document.fonts?.ready || Promise.resolve());
   const go = $("#go"); draw();
@@ -129,18 +170,24 @@ PAGES.report = () => boot("report.html", async (root, who) => {
      يُمرَّر المحتوى مسطّحاً (عناوين ثم جداول) ليُقسَّم على الصفحات صفاً صفاً، ويُستغنى عن رأس مرآة القديم لأن الترويسة الموحدة تحل محله */
   const rkBody = () => {
     const out = [], sh = $("#doc .sheet"); if (!sh) return "";
+    let grp = "";
     const walk = (el) => { for (const n of el.children) {
       if (n.matches(".rp-head")) continue;
+      // عنوان المجموعة يُدمج في عنوان أول جدول بعده حتى لا يبقى وحيداً أسفل الصفحة
+      if (n.matches(".rp-g") && n.nextElementSibling && n.nextElementSibling.matches(".rp-sec")) { grp = n.textContent.trim(); continue; }
       if (n.matches(".rp-block,.rp-sec")) { walk(n); continue; }
-      if (n.tagName === "TABLE" && n.caption) { const c = n.cloneNode(true), cap = c.caption; out.push(`<h3 class="rp-cap">${cap.innerHTML}</h3>`); cap.remove(); out.push(c.outerHTML); continue; }
+      if (n.tagName === "TABLE" && n.caption) { const c = n.cloneNode(true), cap = c.caption; out.push(`<h3 class="rp-cap">${grp ? `<em class="rp-gx">${esc(grp)}</em>` : ""}${cap.innerHTML}</h3>`); grp = ""; cap.remove(); out.push(c.outerHTML); continue; }
       out.push(n.outerHTML);
     } };
     walk(sh); return out.join("");
   };
+  const RKCSS = ".rp-cap{display:flex;flex-wrap:wrap;gap:2mm 6mm;justify-content:space-between;align-items:baseline;font-size:10.5pt;color:#0d2b45;margin:3mm 0 1.5mm}.rp-cap span{font-weight:400;font-size:8.5pt;color:#5b7a8a}.rp-t{width:100%}.rp-gx{flex:1 1 100%;display:flex;align-items:center;gap:2mm;font-style:normal;font-size:11.5pt;font-weight:800;color:#0c6f82;margin:2mm 0 1mm}.rp-gx::before{content:'';width:2.4mm;height:2.4mm;border-radius:50%;background:#f0b34a}";
+  /* أنماط التقرير دون قواعد @page (حتى لا يتكرر ترقيم مرآة القديم مع تذييل الهوية الموحدة) */
+  const repCss = () => "<style>" + [...document.styleSheets].filter((sh) => sh.href && /report\.css/.test(sh.href)).map((sh) => { try { return [...sh.cssRules].filter((r) => !(window.CSSPageRule && r instanceof CSSPageRule)).map((r) => r.cssText).join("\n"); } catch (_) { return ""; } }).join("\n") + "</style>";
+  const rkOpts = () => ({ system: "mirat", systemName: "مرآة | الملف الشامل", title, sub: P.name + (P.no ? " · " + P.no : ""), issuer: who.name, fname: title + " – " + P.name, body: rkBody(), inherit: repCss(), styles: RKCSS });
   const printUnified = async () => {
-    if (!window.ReportKit || !ReportKit.printElement) return window.print();
-    const box = document.createElement("div"); box.innerHTML = rkBody();
-    const ok = await ReportKit.printElement(box, { system: "mirat", systemName: "مرآة | الملف الشامل", title, sub: P.name + (P.no ? " · " + P.no : ""), issuer: who.name, fname: title + " – " + P.name, styles: ".rp-cap{display:flex;flex-wrap:wrap;gap:2mm 6mm;justify-content:space-between;align-items:baseline;font-size:10.5pt;color:#0d2b45;margin:3mm 0 1.5mm}.rp-cap span{font-weight:400;font-size:8.5pt;color:#5b7a8a}.rp-t{width:100%}" });
+    if (!window.ReportKit || !ReportKit.print) return window.print();
+    const ok = await ReportKit.print(rkOpts());
     if (ok === false) window.print();
   };
   go.onclick = doPrint;
