@@ -121,9 +121,27 @@ PAGES.report = () => boot("report.html", async (root, who) => {
   const doPrint = async () => {
     if (go.disabled) return; openPick(false);
     go.disabled = true;
-    try { await rpc("mr_log_export", { p_kind: kind, p_id: id }); window.print(); }
+    try { await rpc("mr_log_export", { p_kind: kind, p_id: id }); await printUnified(); }
     catch (e) { $("#rpst").textContent = "تعذر تسجيل عملية التصدير، فلم يُصدَّر التقرير: " + mapErr(e); $("#rpst").classList.add("bad"); }
     go.disabled = false;
+  };
+  /* الطباعة بالهوية الموحدة للنواة الرقمية (ReportKit): ترويستها وتذييلها ورمز التحقق في كل صفحة.
+     يُمرَّر المحتوى مسطّحاً (عناوين ثم جداول) ليُقسَّم على الصفحات صفاً صفاً، ويُستغنى عن رأس مرآة القديم لأن الترويسة الموحدة تحل محله */
+  const rkBody = () => {
+    const out = [], sh = $("#doc .sheet"); if (!sh) return "";
+    const walk = (el) => { for (const n of el.children) {
+      if (n.matches(".rp-head")) continue;
+      if (n.matches(".rp-block,.rp-sec")) { walk(n); continue; }
+      if (n.tagName === "TABLE" && n.caption) { const c = n.cloneNode(true), cap = c.caption; out.push(`<h3 class="rp-cap">${cap.innerHTML}</h3>`); cap.remove(); out.push(c.outerHTML); continue; }
+      out.push(n.outerHTML);
+    } };
+    walk(sh); return out.join("");
+  };
+  const printUnified = async () => {
+    if (!window.ReportKit || !ReportKit.printElement) return window.print();
+    const box = document.createElement("div"); box.innerHTML = rkBody();
+    const ok = await ReportKit.printElement(box, { system: "mirat", systemName: "مرآة | الملف الشامل", title, sub: P.name + (P.no ? " · " + P.no : ""), issuer: who.name, fname: title + " – " + P.name, styles: ".rp-cap{display:flex;flex-wrap:wrap;gap:2mm 6mm;justify-content:space-between;align-items:baseline;font-size:10.5pt;color:#0d2b45;margin:3mm 0 1.5mm}.rp-cap span{font-weight:400;font-size:8.5pt;color:#5b7a8a}.rp-t{width:100%}" });
+    if (ok === false) window.print();
   };
   go.onclick = doPrint;
   window.__ready = true;
