@@ -5,6 +5,7 @@ const plain = (k, v) => (v == null || v === "" ? "—" : k === "st" || LBL_COLS.
 const rDate = (v) => (isDay(v) ? `<bdi class="nw">${esc(String(v).slice(0, 10))}</bdi>${String(v).length > 10 ? `<span class="tm">${esc(fmtHM(String(v).slice(11, 16)))}</span>` : ""}<span class="hj">${esc(fmtHijri(v))}</span>` : esc(v ?? "—"));
 const rCell = (k, v) => ((k === "d" || /_d$|^due$|^review$|^sub$|^joined$|^first$|^last$/.test(k)) && isDay(v) ? rDate(v) : esc(plain(k, v)));
 
+const CORE_URL = "https://i3zalmadeni.github.io/digital-core/";
 PAGES.report = () => boot("report.html", async (root, who) => {
   const kind = qs.get("k") === "staff" ? "staff" : "student", id = qs.get("id") || "";
   root.innerHTML = `<div class="rp-bar no-print"><div class="rp-bar-in"><b>معاينة التقرير</b><span id="rpst" class="rp-st">جارٍ جمع السجلات…</span>
@@ -99,11 +100,13 @@ PAGES.report = () => boot("report.html", async (root, who) => {
   const groups = GROUPS[kind].map(([g, n]) => ({ n, secs: okSecs.filter((s) => s.grp === g) })).filter((x) => x.secs.length);
   $("#doc").innerHTML = `
   <article class="sheet">
-    <header class="rp-head">
-      <div class="rp-org"><b>المملكة العربية السعودية · وزارة التعليم</b><span>متوسطة لبيد بن ربيعة المتوسطة</span><span>النواة الرقمية · منصة مرآة</span></div>
-      <div class="rp-logo" aria-hidden="true">${LOGO}</div>
-      <div class="rp-ttl"><h1>${esc(title)}</h1><span>تقرير استعلامي من الأنظمة القائمة</span></div>
+    <header class="rp-uh">
+      <div class="uh-k"><b>المملكة العربية السعودية</b><b>وزارة التعليم</b><span>الإدارة العامة للتعليم بمحافظة الأحساء</span><span>مدرسة لبيد بن ربيعة المتوسطة</span></div>
+      <div class="uh-c"><span class="uh-core"><img src="${CORE_URL}assets/core-logo.svg" alt=""><span><b>النواة الرقمية</b><small>الهوية الموحدة</small></span></span><i class="uh-sep"></i><img class="uh-moe" src="${CORE_URL}assets/moe-logo.png" alt="وزارة التعليم"></div>
+      <div class="uh-m"><div><span>التاريخ:</span><b>${esc(new Date().toLocaleDateString("ar-SA-u-ca-gregory-nu-latn", { year: "numeric", month: "long", day: "numeric" }))}</b></div><div><span>رقم التقرير:</span><b>يُصدر عند الطباعة</b></div></div>
     </header>
+    <div class="rp-ubar" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="rp-uttl"><span class="k">مرآة | الملف الشامل · مدرسة لبيد بن ربيعة المتوسطة</span><h1>${esc(title)}</h1><p class="e">${esc(P.name)}${P.no ? " · " + esc(P.no) : ""}</p></div>
 
     <section class="rp-card">
       <div class="rp-card-h"><h2>${esc(P.name)}</h2><span>${kind === "student" ? "متعلم" : "معلم"}</span></div>
@@ -147,6 +150,7 @@ PAGES.report = () => boot("report.html", async (root, who) => {
 
     <footer class="rp-end">هذا التقرير نافذة استعلامية على البيانات الموجودة في أنظمة النواة الرقمية لحظة استخراجه، ولا يُنشئ أي بيانات جديدة.
       المرجع في أي سجل هو نظامه المصدر المذكور بجانبه. صدر هذا التقرير من حساب: ${esc(who.name)}.</footer>
+    <div class="rp-uft"><div class="rp-ubar" aria-hidden="true"><i></i><i></i><i></i></div><div class="uf"><span class="uf-s"><img src="favicon.svg" alt=""><span><small>صدر هذا التقرير من</small><b>مرآة | الملف الشامل</b></span></span><span class="uf-m">${esc(new Date().toLocaleDateString("ar-SA-u-ca-gregory-nu-latn", { year: "numeric", month: "long", day: "numeric" }))} · بواسطة ${esc(who.name)}<br>مدرسة لبيد بن ربيعة المتوسطة</span><span class="uf-s"><span><small>أحد أنظمة</small><b>النواة الرقمية</b></span><img src="${CORE_URL}assets/core-logo.svg" alt=""></span></div></div>
   </article>`;
   const empty = !SEL.size || (!PART.sum && !PART.det && !PART.tl);
   $("#go").disabled = empty;
@@ -170,11 +174,13 @@ PAGES.report = () => boot("report.html", async (root, who) => {
      يُمرَّر المحتوى مسطّحاً (عناوين ثم جداول) ليُقسَّم على الصفحات صفاً صفاً، ويُستغنى عن رأس مرآة القديم لأن الترويسة الموحدة تحل محله */
   const rkBody = () => {
     const out = [], sh = $("#doc .sheet"); if (!sh) return "";
-    let grp = "";
+    let grp = "", parts = 0;
     const walk = (el) => { for (const n of el.children) {
-      if (n.matches(".rp-head")) continue;
+      if (n.matches(".rp-head,.rp-uh,.rp-ubar,.rp-uttl,.rp-uft")) continue;
       // عنوان المجموعة يُدمج في عنوان أول جدول بعده حتى لا يبقى وحيداً أسفل الصفحة
-      if (n.matches(".rp-g") && n.nextElementSibling && n.nextElementSibling.matches(".rp-sec")) { grp = n.textContent.trim(); continue; }
+      // كل نظام (مجموعة في الأقسام التفصيلية) وكل جزء بعد الملخص يبدأ بصفحة جديدة في المطبوع
+      if (n.matches(".rp-g") && n.nextElementSibling && n.nextElementSibling.matches(".rp-sec")) { if (!(n.previousElementSibling && n.previousElementSibling.matches("h2.rp-h"))) out.push('<div class="rk-break"></div>'); grp = n.textContent.trim(); continue; }
+      if (n.matches("h2.rp-h") && parts++) out.push('<div class="rk-break"></div>');
       if (n.matches(".rp-block,.rp-sec")) { walk(n); continue; }
       if (n.tagName === "TABLE" && n.caption) { const c = n.cloneNode(true), cap = c.caption; out.push(`<h3 class="rp-cap">${grp ? `<em class="rp-gx">${esc(grp)}</em>` : ""}${cap.innerHTML}</h3>`); grp = ""; cap.remove(); out.push(c.outerHTML); continue; }
       out.push(n.outerHTML);

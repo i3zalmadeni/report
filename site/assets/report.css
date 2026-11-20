@@ -130,3 +130,47 @@ bdi,.nw{unicode-bidi:isolate;white-space:nowrap}
   .rp-dist>div{grid-template-columns:30% 1fr 9mm}
   .rp-kpis{grid-template-columns:repeat(2,1fr)}
 }
+
+/* ===== «عرض للقراءة» بالهوية الموحدة للنواة الرقمية (مطابق لأسلوب ReportKit) ===== */
+.sheet{padding:10mm 12mm;font-size:10pt;line-height:1.7;border-radius:4px}
+.rp-uh{display:flex;align-items:center;gap:4mm;padding-bottom:2mm}
+.uh-k,.uh-m{flex:1;display:flex;flex-direction:column}
+.uh-k{text-align:center;line-height:1.6;align-items:flex-start}.uh-k b{font-size:9.6pt;color:var(--ink)}.uh-k span{font-size:8.4pt;color:var(--ink2)}
+.uh-c{flex:1.3;display:flex;align-items:center;justify-content:center;gap:3mm}
+.uh-core{display:flex;align-items:center;gap:2mm;line-height:1.25}.uh-core img{width:13mm;height:13mm}.uh-core b{display:block;font-size:10pt;color:var(--brand);white-space:nowrap}.uh-core small{display:block;font-size:7.4pt;color:#71859a;white-space:nowrap}
+.uh-sep{width:1.5px;height:15mm;background:#f0b34a;border-radius:2px;display:block}
+.uh-moe{height:19mm;max-width:28mm;object-fit:contain}
+.uh-m{align-items:flex-end;font-size:8pt;line-height:1.8;color:var(--ink2)}.uh-m div{display:flex;gap:1.5mm}.uh-m span{color:#71859a}.uh-m b{color:var(--ink)}
+.rp-ubar{display:flex;height:4px;border-radius:4px;overflow:hidden}.rp-ubar i{display:block}.rp-ubar i:nth-child(1){flex:2.2;background:#0d2b45}.rp-ubar i:nth-child(2){flex:1.2;background:#f0b34a}.rp-ubar i:nth-child(3){flex:6;background:#0f8a94}
+.rp-uh+.rp-ubar{margin-bottom:5mm}
+.rp-uttl{position:relative;text-align:center;margin:0 0 5mm;padding:5mm 7mm 6mm;border-radius:16px;background:linear-gradient(160deg,#fff7f6 0%,#fff 45%,#f1f9fa 100%);border:1px solid #ecd9d6}
+.rp-uttl::before,.rp-uttl::after{content:"";position:absolute;width:16mm;height:16mm;border:3px solid #f0b34a}
+.rp-uttl::before{top:-2px;right:-2px;border-left:0;border-bottom:0;border-top-right-radius:16px}
+.rp-uttl::after{bottom:-2px;left:-2px;border-right:0;border-top:0;border-bottom-left-radius:16px}
+.rp-uttl .k{display:block;font-size:8.8pt;font-weight:700;color:var(--brand);margin-bottom:1mm}
+.rp-uttl h1{margin:0;font-size:20pt;font-weight:800;color:#8f1d1d;line-height:1.45}
+.rp-uttl .e{display:inline-flex;align-items:center;gap:2.5mm;margin:3mm auto 0;padding:1.6mm 7mm;border-radius:999px;background:#8f1d1d;color:#fff;font-weight:800;font-size:12pt}
+.rp-uttl .e::before{content:"";width:2.4mm;height:2.4mm;border-radius:50%;background:#f0b34a}
+.sheet .rp-card{border-radius:14px;border-color:#c9dbe1}
+.sheet .rp-card-h h2{font-size:13pt;border-right:5px solid #f0b34a;padding-right:3mm}
+.sheet .rp-kv th{background:#eef8fa;color:var(--ink2);font-weight:700;padding:1.4mm 2mm;border:1px solid #b9cdd5}
+.sheet .rp-kv td{padding:1.4mm 2mm;border:1px solid #b9cdd5}
+.sheet .rp-h{font-size:12.5pt;color:#0d2b45;border:0;border-right:5px solid #f0b34a;padding:1mm 3mm 1mm 0;margin:7mm 0 3mm;background:linear-gradient(270deg,#e8f6f7,rgba(232,246,247,0))}
+.sheet .rp-g{color:var(--brand);font-size:11pt;font-weight:800}
+.sheet .rp-g::before{background:#f0b34a}
+.sheet .rp-t caption b{color:var(--brand)}
+.sheet .rp-t th{background:#e3f6f7;border-color:#b9cdd5}
+.sheet .rp-t td{border-color:#b9cdd5}
+.sheet .rp-kpis div{border-radius:10px;border-color:#c9dbe1;background:linear-gradient(180deg,#f4fbfc,#fff)}
+.sheet .rp-note{background:#f1f9fa;border-right:3px solid var(--brand2)}
+.rp-uft{margin-top:6mm}
+.rp-uft .uf{display:flex;align-items:center;justify-content:space-between;gap:3mm;padding-top:2mm;font-size:8pt;color:var(--ink2)}
+.uf-s{display:flex;align-items:center;gap:2mm;line-height:1.3}.uf-s img{width:24px;height:24px;object-fit:contain}.uf-s small{display:block;font-size:7pt;color:#71859a}.uf-s b{color:var(--brand);font-size:8.6pt}
+.uf-m{text-align:center;line-height:1.5;color:#71859a}
+@media screen and (max-width:640px){
+  .sheet{padding:5mm 4mm}
+  .rp-uh{flex-wrap:wrap;gap:3mm}.uh-c{order:-1;flex:1 1 100%}.uh-k{flex:1 1 55%}.uh-m{flex:1 1 35%}
+  .uh-moe{height:14mm}.uh-m{font-size:7.4pt}.uh-m div{white-space:nowrap}.uh-k{flex:1 1 50%}.uh-core img{width:10mm;height:10mm}
+  .rp-uttl{padding:4mm 4mm 5mm}.rp-uttl h1{font-size:16pt}.rp-uttl .e{font-size:10.5pt;padding:1.4mm 5mm}
+  .rp-uft .uf{flex-wrap:wrap;justify-content:center}.uf-m{order:-1;flex:1 1 100%}
+}
