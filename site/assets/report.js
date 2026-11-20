@@ -191,8 +191,8 @@ PAGES.report = () => boot("report.html", async (root, who) => {
   /* أنماط التقرير دون قواعد @page (حتى لا يتكرر ترقيم مرآة القديم مع تذييل الهوية الموحدة) */
   const repCss = () => "<style>" + [...document.styleSheets].filter((sh) => sh.href && /report\.css/.test(sh.href)).map((sh) => { try { return [...sh.cssRules].filter((r) => !(window.CSSPageRule && r instanceof CSSPageRule)).map((r) => r.cssText).join("\n"); } catch (_) { return ""; } }).join("\n") + "</style>";
   const rkOpts = () => ({ system: "mirat", systemName: "مرآة | الملف الشامل", title, sub: P.name + (P.no ? " · " + P.no : ""), issuer: who.name, fname: title + " – " + P.name, body: rkBody(), inherit: repCss(), styles: RKCSS,
-    // التوقيعات: صاحب الملف (للمعلم) ثم منسق مرآة ثم مدير المدرسة؛ والمُصدِر إن لم يكن صاحب الملف
-    signers: [...(kind === "staff" && P.id ? [{ staff_id: P.id, label: "صاحب الملف" }] : []), ...(kind === "staff" && P.id === who.staff_id ? [] : [{ role: "issuer", label: "مُصدِر التقرير" }]), { role: "coordinator", label: "منسق مرآة" }, { role: "principal", label: "مدير المدرسة" }] });
+    // التوقيعات: صاحب الملف (للمعلم) ثم منسق مرآة ثم مدير المدرسة؛ ولا يوقّع المُصدِر
+    signers: [...(kind === "staff" && P.id ? [{ staff_id: P.id, label: "صاحب الملف" }] : []), { role: "coordinator", label: "منسق مرآة" }, { role: "principal", label: "مدير المدرسة" }] });
   const printUnified = async () => {
     if (!window.ReportKit || !ReportKit.print) return window.print();
     const ok = await ReportKit.print(rkOpts());
