@@ -253,7 +253,7 @@ PAGES.log = () => boot("log.html", async (main) => {
 // اختصارات بحسب الصلاحية، وبحث سريع، وآخر الإشعارات (المصدر نفسه في الجرس)، ونشاط اليوم لمن يدير مرآة.
 PAGES.desk = () => boot("desk.html", async (main, who) => {
   const kinds = ["student", "staff"].filter((k) => who["can_" + k]);
-  const role = who.is_admin ? "مدير النواة الرقمية" : who.manage ? "منسق مرآة" : who.can ? "مطّلع مخوّل" : "منسوب";
+  const role = who.rv_teacher ? "معلم" : who.is_admin ? "مدير النواة الرقمية" : who.manage ? "منسق مرآة" : who.can ? "مطّلع مخوّل" : "منسوب";
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Riyadh" });
   const tile = (href, icon, t, d, extra = "") => `<a class="mr-tile card" href="${esc(href)}"><span class="mr-av" aria-hidden="true">${ico(icon)}</span><span class="mr-tile-t"><b>${t}${extra}</b><small>${d}</small></span>${ico("arrow")}</a>`;
   main.innerHTML = `<section class="card mr-desk-h">
@@ -262,7 +262,7 @@ PAGES.desk = () => boot("desk.html", async (main, who) => {
         <div class="mr-search mr-search-c">${ico("search")}<input type="search" id="dqi" placeholder="ابحث بالاسم أو الرقم" aria-label="بحث سريع"></div><button class="btn" type="submit">بحث</button></form>` : ""}
     </section>
     <div class="mr-tiles">
-      ${tile(myFile(who), "user", "ملفي الشامل", "سجلك كاملاً، واستخراج تقريرك")}
+      ${who.rv_coord ? "" : tile(myFile(who), "user", "ملفي الشامل", "سجلك كاملاً، واستخراج تقريرك")}
       ${who.can ? tile("search.html", "search", "البحث الموحد", kinds.length > 1 ? "ملفات المتعلمين والمعلمين" : kinds[0] === "student" ? "ملفات المتعلمين" : "ملفات المعلمين") : ""}
       ${tile("inbox.html", "bell", "الإشعارات", "ما يخصك من مستجدات", '<span class="badge warn" id="dnb" hidden></span>')}
       ${who.manage ? tile("perms.html", "key", "الصلاحيات", "من يطّلع ويستخرج التقارير") + tile("log.html", "eye", "سجلات المشاهدة", "من اطّلع على أي ملف ومتى") : ""}

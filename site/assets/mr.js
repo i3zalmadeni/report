@@ -141,16 +141,20 @@ async function boot(page, render, o = {}) {
   let who;
   try { who = await rpc("mr_whoami"); } catch (e) { console.error(e); fail(mapErr(e)); return; }
   if (!who) { await doLogout("login.html?e=nostaff"); return; }
+  // تبديل الدور: منسق مرآة يختار بين لوحة المنسق (البحث والسجلات والصلاحيات) ولوحة المعلم (ملفي فقط)
+  const rvCan = !!who.manage, rvView = window.RoleSwitch ? RoleSwitch.view("mirat", session.user.id, rvCan) : "coord";
+  if (rvCan && rvView === "teacher") who = { ...who, can: false, manage: false, can_student: false, can_staff: false, is_admin: false, rv_teacher: true };
+  who.rv_coord = rvCan && rvView === "coord";
   if (!who.can && page !== "inbox.html" && page !== "desk.html" && !((page === "profile.html" || page === "report.html") && isOwnFile(who))) { location.replace(myFile(who)); return; }
   window.__mr = who;
   if (o.bare) { await render(shell, who); return; }
   if (o.manage && !who.manage) { fail("هذه الصفحة لمدير النواة الرقمية ومدير المدرسة ومنسق مرآة فقط.", true); return; }
-  const role = who.is_admin ? "مدير النواة الرقمية" : who.manage ? "منسق مرآة" : who.can ? "مطّلع مخوّل" : "منسوب";
+  const role = who.rv_teacher ? "معلم" : who.is_admin ? "مدير النواة الرقمية" : who.manage ? "منسق مرآة" : who.can ? "مطّلع مخوّل" : "منسوب";
   const here = page + location.search;
   shell.innerHTML =
     `<header class="dash"><div class="wrap top">${brandHTML("index.html")}<div class="idl"><a class="sitelink" href="index.html">الموقع الإلكتروني</a><span class="vdiv"></span>${coreBlock()}${headMoe}</div></div>
      <div class="strip" aria-hidden="true"></div>
-     <div class="dnav"><div class="wrap dn"><button type="button" class="dmb" id="dmb" aria-expanded="false" aria-controls="dnavIn">${ico("menu")}<span class="dmb-t">القائمة</span><svg class="dmb-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button><div class="dnav-in" id="dnavIn">${NAV.filter((x) => !x[4] || x[4](who)).map(([hf, n, e, t]) => { const h = hf(who), on = h === page || (h.includes("?") && here === h); return `<a href="${esc(h)}" title="${esc(t)}" class="${on ? "on" : ""}" ${on ? 'aria-current="page"' : ""}>${ico(e)}${n}</a>`; }).join("")}</div>
+     <div class="dnav"><div class="wrap dn"><button type="button" class="dmb" id="dmb" aria-expanded="false" aria-controls="dnavIn">${ico("menu")}<span class="dmb-t">القائمة</span><svg class="dmb-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button><div class="dnav-in" id="dnavIn">${NAV.filter((x) => (!x[4] || x[4](who)) && !(who.rv_coord && x === NAV[2])).map(([hf, n, e, t]) => { const h = hf(who), on = h === page || (h.includes("?") && here === h); return `<a href="${esc(h)}" title="${esc(t)}" class="${on ? "on" : ""}" ${on ? 'aria-current="page"' : ""}>${ico(e)}${n}</a>`; }).join("")}</div>
      <div class="dwho">${ubBarHTML(who.name, myFile(who))}</div></div></div></header>
      <div class="pagebar"><div class="wrap pb"><div class="pb-t"><small>${esc(role)}</small><h1>${esc(o.title || "الملف الشامل")}</h1></div><p class="pb-d">${esc(o.desc || "")}</p>
      <div class="pb-u"><span>${esc(fmtHijri(todayISO()))}</span></div></div></div>
@@ -172,6 +176,7 @@ async function boot(page, render, o = {}) {
   document.title = (o.title || "الملف الشامل") + " – مرآة";
   $("#out").onclick = (e) => { e.preventDefault(); doLogout(); };
   // الإشعارات: تعديلات صلاحياتك في مرآة، ولمن يدير مرآة آخر العمليات من غيره، و«مشاهدة الكل» سجلات المشاهدة
+  if (window.RoleSwitch) RoleSwitch.mount({ sys: "mirat", uid: session.user.id, can: rvCan, view: rvView, home: { coord: "desk.html", teacher: "desk.html" }, teacherDesc: "ملفي الشامل وتقريري", coordDesc: "البحث والصلاحيات والسجلات" });
   ubMount({ key: "mr", uid: who.staff_id, allUrl: "inbox.html", load: async () => {
     const L = await rpc("mr_my_notifications", { p_limit: 50 }), P = (a) => (a && a.length ? a.map((c) => PERM_AR[c] || c).join("، ") : "لا شيء");
     const K = (r) => (r.kind === "student" ? "ملف المتعلم" : "ملف المعلم");
