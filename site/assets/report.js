@@ -190,7 +190,9 @@ PAGES.report = () => boot("report.html", async (root, who) => {
   const RKCSS = ".rp-cap{display:flex;flex-wrap:wrap;gap:2mm 6mm;justify-content:space-between;align-items:baseline;font-size:10.5pt;color:#0d2b45;margin:3mm 0 1.5mm}.rp-cap span{font-weight:400;font-size:8.5pt;color:#5b7a8a}.rp-t{width:100%}.rp-gx{flex:1 1 100%;display:flex;align-items:center;gap:2mm;font-style:normal;font-size:11.5pt;font-weight:800;color:#0c6f82;margin:2mm 0 1mm}.rp-gx::before{content:'';width:2.4mm;height:2.4mm;border-radius:50%;background:#f0b34a}";
   /* أنماط التقرير دون قواعد @page (حتى لا يتكرر ترقيم مرآة القديم مع تذييل الهوية الموحدة) */
   const repCss = () => "<style>" + [...document.styleSheets].filter((sh) => sh.href && /report\.css/.test(sh.href)).map((sh) => { try { return [...sh.cssRules].filter((r) => !(window.CSSPageRule && r instanceof CSSPageRule)).map((r) => r.cssText).join("\n"); } catch (_) { return ""; } }).join("\n") + "</style>";
-  const rkOpts = () => ({ system: "mirat", systemName: "مرآة | الملف الشامل", title, sub: P.name + (P.no ? " · " + P.no : ""), issuer: who.name, fname: title + " – " + P.name, body: rkBody(), inherit: repCss(), styles: RKCSS });
+  const rkOpts = () => ({ system: "mirat", systemName: "مرآة | الملف الشامل", title, sub: P.name + (P.no ? " · " + P.no : ""), issuer: who.name, fname: title + " – " + P.name, body: rkBody(), inherit: repCss(), styles: RKCSS,
+    // التوقيعات: صاحب الملف (للمعلم) ثم منسق مرآة ثم مدير المدرسة؛ والمُصدِر إن لم يكن صاحب الملف
+    signers: [...(kind === "staff" && P.id ? [{ staff_id: P.id, label: "صاحب الملف" }] : []), ...(kind === "staff" && P.id === who.staff_id ? [] : [{ role: "issuer", label: "مُصدِر التقرير" }]), { role: "coordinator", label: "منسق مرآة" }, { role: "principal", label: "مدير المدرسة" }] });
   const printUnified = async () => {
     if (!window.ReportKit || !ReportKit.print) return window.print();
     const ok = await ReportKit.print(rkOpts());
