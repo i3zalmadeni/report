@@ -45,7 +45,7 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
   await p.goto(`${BASE}/search.html`); await p.waitForURL(new RegExp(`profile\\.html\\?k=staff&id=${T3a}`)); await p.waitForSelector("#tl");
   ok(!(await p.$("#q")) && (await p.textContent(".mr-id h2")) === "إبراهيم المعلم", "المعلم غير المخوّل يُحوَّل إلى ملفه الشامل بدل رسالة المنع");
   ok((await p.textContent(".pagebar h1")) === "ملفي الشامل" && (await p.textContent(".pagebar small")) === "منسوب", "عنوان «ملفي الشامل»");
-  ok(await p.isVisible('.dnav a.on:has-text("ملفي")') && !(await p.$('.dnav a[href="search.html"]')) && !(await p.$('.dnav a[href="perms.html"]')), "الشريط: «ملفي» فقط، دون البحث والصلاحيات");
+  ok(await p.isVisible('.dnav a.on:has-text("مكتبي")') && !(await p.$('.dnav a[href="search.html"]')) && !(await p.$('.dnav a[href="perms.html"]')), "الشريط: «مكتبي» فقط، دون البحث والصلاحيات");
   ok((await p.textContent(".mr-id")).includes("4455667"), "يرى رقمه الوظيفي في ملفه");
   ok((await p.textContent("#ubAv")) === "إ" && (await p.getAttribute(".ub-u", "href")).includes(T3a) && (await p.textContent(".ub-nm")) === "إبراهيم المعلم", "الشريط: صورة المستخدم (أو أول حرف من اسمه) ثم اسمه الأول والأخير، وتفتح ملفه");
   ok(await p.evaluate(() => { const b = [...document.querySelector(".dnav .ub").children].map((e) => e.className.split(" ")[0]); return b.join(",") === "ub-n,ub-n,ub-u,ub-out"; }) && (await p.textContent("#out")).includes("خروج") && !!(await p.$("#out svg")), "ترتيب آخر الشريط: الإشعارات، ثم الصورة والاسم، ثم أيقونة «خروج»");
@@ -114,8 +114,11 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
 
   // 4) المدير: ملف المعلم
   p = await open(U.admin);
-  await p.goto(`${BASE}/search.html?k=staff`); await p.waitForSelector("#q"); await p.fill("#q", "4455667"); await p.waitForSelector(".mr-hit");
+  await p.goto(`${BASE}/desk.html?k=staff`); await p.waitForSelector("#q"); await p.fill("#q", "4455667"); await p.waitForSelector(".mr-hit");
   ok((await p.textContent(".mr-hit")).includes("إبراهيم المعلم"), "بحث المعلم بالرقم الوظيفي للمخول");
+  ok(!(await p.$('.dnav a[href="search.html"], .sbar a[href="search.html"]')), "المنسق: لا قسم بحث مستقل، والبحث في الرئيسية فقط");
+  await p.goto(`${BASE}/search.html?k=student`); await p.waitForURL(/desk\.html\?k=student/); await p.waitForSelector("#q");
+  ok(true, "search.html يحوّل المنسق إلى الرئيسية");
   await p.goto(`${BASE}/profile.html?k=staff&id=${T3}`); await p.waitForSelector("#tl");
   ok((await p.textContent("#s-plans")).includes("مشروع نافس للرياضيات") && !(await p.textContent("#s-plans")).includes("لا يخصه"), "الخطط الذكية مربوطة بمعرّف المعلم فقط");
   ok((await p.textContent("#s-contrib")).includes("تعزيزات منحها للطلاب") && !(await p.textContent("#s-contrib")).includes("أحمد"), "الإسهامات مجمّعة دون أسماء الطلاب");
@@ -206,7 +209,7 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
 
   // 7) الجوال (390 بكسل): لا تمرير أفقي في أي صفحة، والقائمة الرئيسية وألسنة الأنظمة تعمل باللمس
   const T = "30000000-0000-0000-0000-000000000003";
-  for (const [u, pg, sel] of [[null, "index.html", ".tk-g"], [null, "about.html", "#ab-faq"], [null, "login.html", "form"], [U.admin, "search.html?k=student", "#q"],
+  for (const [u, pg, sel] of [[null, "index.html", ".tk-g"], [null, "about.html", "#ab-faq"], [null, "login.html", "form"], [U.admin, "desk.html?k=student", "#q"],
     [U.admin, `profile.html?k=student&id=${S1}`, "#tl"], [U.admin, `profile.html?k=staff&id=${T}`, "#tl"], [U.admin, `report.html?k=staff&id=${T}&pick=1`, "#doc .sheet"]]) {
     p = await open(u, 390, 844); await p.goto(`${BASE}/${pg}`); await p.waitForSelector(sel); await p.waitForTimeout(300);
     ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `[جوال] ${pg.split("?")[0]} بلا تمرير أفقي`);
@@ -232,7 +235,7 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
   ok(!(await p.$('a[href="perms.html"]')) && !(await p.$('a[href="log.html"]')), "المطّلع لا يرى رابط الصلاحيات ولا سجلات المشاهدة");
   await p.goto(`${BASE}/perms.html`); await p.waitForSelector("text=هذه الصفحة لمدير النواة");
   ok(!(await p.$("#pmb")), "ولا يفتح اللوحة مباشرة");
-  p = await open(U.admin); await p.goto(`${BASE}/search.html`); await p.click('a[href="perms.html"]'); await p.waitForSelector("#pmb tr[data-id]");
+  p = await open(U.admin); await p.goto(`${BASE}/desk.html`); await p.click('a[href="perms.html?tab=perms"]'); await p.waitForSelector("#pmb tr[data-id]");
   ok((await p.$$("#pmb tr[data-id]")).length === +psql("select count(*) from staff_members where is_active"), "اللوحة تعرض كل منسوبي المدرسة الفعّالين");
   ok(await p.$eval('#pmb tr.lead input[data-p="student"]', (b) => b.checked && b.disabled), "المدير محدد ومقفل بحكم القيادة");
   const TR = `#pmb tr[data-id="${T3}"]`;
@@ -268,14 +271,13 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
   await p.reload(); await p.waitForSelector(".ub-bell"); await p.waitForTimeout(800); ok(await p.isHidden("#ubC"), "المقروء يبقى مقروءاً بعد إعادة التحميل");
   await shot(p, "08b-bell");
   // 8ج) مكتبي الإلكتروني: الصفحة الرئيسية في لوحة التحكم
-  p = await open(U.admin); await p.goto(`${BASE}/desk.html`); await p.waitForSelector("#dn .ubg-it"); await p.waitForSelector("#dact .mr-kpi");
-  ok((await p.textContent(".dnav a.on")).includes("مكتبي الإلكتروني") && (await p.$eval(".dnav a", (a) => a.textContent.trim())) === "مكتبي الإلكتروني", "«مكتبي الإلكتروني» أول تبويب في لوحة التحكم، والصفحة الرئيسية");
-  ok((await p.textContent(".pagebar h1")) === "مكتبي الإلكتروني" && (await p.textContent(".mr-desk-h h2")).includes("مرحباً"), "عنوان الصفحة والترحيب");
-  ok((await p.$$(".mr-tile")).length === 5 && (await p.$$("#dn .ubg-it")).length === 5, "اختصارات المدير الخمسة، وآخر خمسة إشعارات");
+  p = await open(U.admin); await p.goto(`${BASE}/desk.html`); await p.waitForSelector("#srch #q"); await p.waitForSelector("#dact .mr-kpi");
+  ok((await p.textContent(".dnav a.on")).includes("الرئيسية") && (await p.textContent(".pagebar h1")).includes("الرئيسية") && !(await p.$('.dnav a[href="search.html"], .sbar a[href="search.html"]')), "الرئيسية للمنسق: البحث فيها وحدها، دون قسم بحث مستقل");
+  ok(!(await p.$("#dq")) && (await p.$$("[data-k]")).length === 2, "البحث الموحد الكامل داخل الرئيسية (متعلم ومعلم)، لا نموذج بحث سريع");
   ok(+(await p.textContent("#dact .mr-kpi.main b")) >= 1, "نشاط اليوم للمدير");
   await shot(p, "11-desk");
-  await p.fill("#dqi", "احمد"); await p.click("#dq button[type=submit]"); await p.waitForURL(/search\.html\?k=student&q=/); await p.waitForSelector(".mr-hit");
-  ok((await p.inputValue("#q")) === "احمد" && (await p.$$(".mr-hit")).length >= 1, "البحث السريع ينقل إلى البحث بالكلمة ويعرض النتائج");
+  await p.fill("#q", "احمد"); await p.waitForSelector(".mr-hit");
+  ok(p.url().includes("desk.html") && (await p.$$(".mr-hit")).length >= 1, "البحث في الرئيسية يعرض النتائج في الصفحة نفسها");
   await p.goto(`${BASE}/desk.html`); await p.click('a.mr-more[href^="log.html"]'); await p.waitForSelector("#lb tr td .badge");
   ok(/^\d{4}-\d{2}-\d{2}$/.test(await p.inputValue("#ff")) && (await p.inputValue("#ff")) === (await p.inputValue("#ft")), "«سجلات المشاهدة» من نشاط اليوم تفتح مصفّاة باليوم");
   // مبدّل الأنظمة بجوار الجرس
@@ -288,12 +290,12 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
   await shot(p, "12-switcher"); await p.screenshot({ path: `${OUT}/12-switcher-top.png`, clip: { x: 0, y: 0, width: 1280, height: 640 } });
   await p.keyboard.press("Escape"); ok(await p.isHidden("#ubSP") && (await p.evaluate(() => document.activeElement.id)) === "ubS", "Esc يغلق المبدّل ويعيد التركيز إلى زره");
   ok(p.errs.length === 0, "لا أخطاء JavaScript في مكتبي: " + p.errs.join(" | "));
-  p = await open(U.teacher); await p.goto(`${BASE}/desk.html`); await p.waitForSelector(".mr-tile");
-  ok(p.url().includes("desk.html") && (await p.$$(".mr-tile")).length === 2 && !(await p.$("#dq")) && !(await p.$("#dact")), "المنسوب بلا صلاحية: مكتبه بملفه والإشعارات فقط، دون بحث ولا نشاط");
-  p = await open(U.admin, 390, 844); await p.goto(`${BASE}/desk.html`); await p.waitForSelector("#dn .ubg-it");
+  p = await open(U.teacher); await p.goto(`${BASE}/desk.html`); await p.waitForURL(/profile\.html\?k=staff/);
+  ok(!(await p.$("#srch")) && !(await p.$("#dact")), "المنسوب بلا صلاحية: يُحوَّل إلى ملفه دون بحث ولا نشاط");
+  p = await open(U.admin, 390, 844); await p.goto(`${BASE}/desk.html`); await p.waitForSelector("#srch #q");
   ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "[جوال] desk.html بلا تمرير أفقي"); await p.screenshot({ path: `${OUT}/11-desk-mobile.png`, fullPage: true });
   // 9) سجلات المشاهدة
-  p = await open(U.admin); await p.goto(`${BASE}/search.html`); await p.click("#ubB"); await p.waitForSelector("#ubP .ub-it");
+  p = await open(U.admin); await p.goto(`${BASE}/desk.html`); await p.click("#ubB"); await p.waitForSelector("#ubP .ub-it");
   ok(await p.isVisible('#ubA[href="inbox.html"]') && (await p.textContent("#ubL")).includes("اطّلع إبراهيم المعلم"), "إشعارات المدير: نشاط الآخرين، و«مشاهدة الكل» ظاهرة");
   await p.click("#ubA"); await p.waitForURL(/inbox\.html/); await p.waitForSelector("#ubgL .ubg-it");
   ok((await p.textContent(".pagebar h1")) === "الإشعارات" && (await p.$$("#ubgL .ubg-it")).length === 12 && (await p.$$("#ubgL .ubg-d")).length >= 1 && (await p.textContent("#ubgL")).includes("اطّلع إبراهيم المعلم"), "صفحة الإشعارات تعرض كل الإشعارات مجمّعة بالأيام");
@@ -309,7 +311,7 @@ const N = (t) => String(t).replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\u065
   ok(p.url().includes("inbox.html") && (await p.textContent("#ubgL")).includes("صلاحياتك"), "المنسوب بلا صلاحية يفتح صفحة إشعاراته (لا يُحوَّل إلى ملفه)");
   p = await open(U.admin, 390, 844); await p.goto(`${BASE}/inbox.html`); await p.waitForSelector("#ubgL .ubg-it");
   ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "[جوال] inbox.html بلا تمرير أفقي"); await p.screenshot({ path: `${OUT}/10-inbox-mobile.png`, fullPage: false });
-  p = await open(U.admin); await p.goto(`${BASE}/search.html`); await p.click('a[href="log.html"]'); await p.waitForSelector("#lb tr td .badge");
+  p = await open(U.admin); await p.goto(`${BASE}/desk.html`); await p.click('.sbar a[href="log.html"]'); await p.waitForSelector("#lb tr td .badge");
   const nLog = +psql("select count(*) from audit_logs where table_name like 'mirat.%'");
   ok((await p.textContent("#lk .mr-kpi.main b")) === String(nLog), `السجل يعرض كل عمليات مرآة (${nLog})`);
   ok((await p.textContent("#lb")).includes("إبراهيم المعلم") && (await p.textContent("#lb")).includes("ملفه الشخصي"), "اطلاع المنسوب على ملفه يظهر باسمه");

@@ -130,9 +130,9 @@ const SECTIONS = [
 ];
 // [الرابط، الاسم، الأيقونة، الوصف، شرط الظهور، القسم]
 const NAV = [
-  [() => "desk.html", "نظرة عامة", "grid", "نشاط اليوم والصلاحيات، والبحث السريع", (w) => w.manage, "home"],
+  [() => "desk.html", "نظرة عامة", "grid", "البحث الموحد ونشاط اليوم والصلاحيات", (w) => w.manage, "home"],
   [() => "log.html", "سجلات المشاهدة", "eye", "من اطّلع على أي ملف، ومتى، ومن صدّر التقارير", (w) => w.manage, "home"],
-  [() => "search.html", "البحث", "search", "اختر نوع الملف ثم ابحث بالاسم أو الرقم", (w) => w.can, "search"],
+  [() => "search.html", "البحث", "search", "اختر نوع الملف ثم ابحث بالاسم أو الرقم", (w) => w.can && !w.manage, "search"],
   [myFile, "ملفي الشامل", "user", "ملفي الشامل وسجلي كاملاً، واستخراج تقريري", (w) => !w.rv_coord, "mine"],
   [() => "perms.html?tab=perms", "الصلاحيات", "key", "من يطّلع على الملفات الشاملة ويستخرج تقارير المتعلمين والمعلمين", (w) => w.manage, "admin"],
   [() => "perms.html?tab=ann", "الإعلانات", "bell", "إعلانات البوابة التي تظهر أعلى لوحة التحكم", (w) => w.manage, "admin"],
@@ -166,7 +166,7 @@ async function boot(page, render, o = {}) {
   const tab = qs0.get("tab") === "ann" ? "ann" : "perms";
   const own = page === "profile.html" && isOwnFile(who);
   const cur = page === "perms.html" ? vis.find((n) => n[0] === "perms.html?tab=" + tab)
-    : own ? vis.find((n) => n[5] === "mine") : page === "profile.html" ? vis.find((n) => n[5] === "search") : vis.find((n) => n[0] === page);
+    : own ? vis.find((n) => n[5] === "mine") : page === "profile.html" ? vis.find((n) => n[5] === "search") || vis.find((n) => n[0] === "desk.html") : vis.find((n) => n[0] === page);
   const secKey = cur ? cur[5] : null, sec = SECTIONS.find((x) => x[0] === secKey);
   const secItems = (k) => vis.filter((n) => n[5] === k);
   const secName = (k) => (k === "mine" ? (who.can ? "ملفي" : "مكتبي") : secItems(k).length === 1 && k !== "home" ? secItems(k)[0][1] : SECTIONS.find((x) => x[0] === k)[1]);
@@ -182,7 +182,7 @@ async function boot(page, render, o = {}) {
      <div class="pagebar"><div class="wrap pb"><div class="pb-t"><small>${esc(role)}</small><h1><span class="pb-ic">${ico(pbIcon)}</span><span>${esc(pbTitle)}</span></h1></div><p class="pb-d">${esc(pbDesc)}</p>
      <div class="pb-u"><span>${esc(fmtHijri(todayISO()))}</span></div></div></div>
      ${hasSub ? `<div class="sbar" role="navigation" aria-label="${esc(secName(secKey))}"><div class="wrap"><div class="subnav">${subs.map((n, i) => { const on = n === cur; return `<a href="${esc(n[0])}" title="${esc(n[3])}" class="${on ? "on" : ""}" ${on ? 'aria-current="page"' : ""}>${ico(n[2])}${secKey === "admin" ? i + 1 + ". " : ""}${esc(n[1])}</a>`; }).join("")}</div></div></div>
-     <div class="wrap shd"><h2>${esc(cur[1])}</h2><p class="sub">${esc(cur[3])}</p></div>` : ""}
+     ${page === "profile.html" ? "" : `<div class="wrap shd"><h2>${esc(cur[1])}</h2><p class="sub">${esc(cur[3])}</p></div>`}` : ""}
      <main class="wrap${hasSub ? "" : " solo"}" id="main"></main>${footerHTML}`;
   { const a = document.querySelector(".sbar a.on"); if (a) a.scrollIntoView({ block: "nearest", inline: "center" }); }
   bindNav();
@@ -206,7 +206,7 @@ async function boot(page, render, o = {}) {
     const L = await rpc("mr_my_notifications", { p_limit: 50 }), P = (a) => (a && a.length ? a.map((c) => PERM_AR[c] || c).join("، ") : "لا شيء");
     const K = (r) => (r.kind === "student" ? "ملف المتعلم" : "ملف المعلم");
     return (L || []).map((r) => r.mine
-      ? { id: r.id, t: r.at, tone: "warn", icon: "key", href: who.can ? "search.html" : myFile(who), title: `عدّل ${r.actor} صلاحياتك في مرآة`, body: `صلاحياتك الآن: ${P(r.new)}` }
+      ? { id: r.id, t: r.at, tone: "warn", icon: "key", href: who.manage ? "desk.html" : who.can ? "search.html" : myFile(who), title: `عدّل ${r.actor} صلاحياتك في مرآة`, body: `صلاحياتك الآن: ${P(r.new)}` }
       : r.action === "PERMISSION" ? { id: r.id, t: r.at, tone: "warn", icon: "key", href: "perms.html", title: `عدّل ${r.actor} صلاحيات ${r.target || "منسوب"}`, body: `من: ${P(r.old)} · إلى: ${P(r.new)}` }
       : r.action === "DENIED" ? { id: r.id, t: r.at, tone: "bad", icon: "lock", href: "log.html", title: `رُفض وصول ${r.actor}`, body: `${K(r)}: ${r.target || "—"}` }
       : { id: r.id, t: r.at, tone: r.action === "EXPORT" ? "ok" : "info", icon: r.action === "EXPORT" ? "file" : "eye", href: "log.html",

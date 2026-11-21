@@ -3,7 +3,7 @@ const PAGES = {};
 const qs = new URLSearchParams(location.search);
 
 // ===== البحث الموحد =====
-PAGES.search = () => boot("search.html", async (main, who) => {
+function mountSearch(main, who, o = {}) {
   const kinds = ["student", "staff"].filter((k) => who["can_" + k]);
   let kind = kinds.includes(qs.get("k")) ? qs.get("k") : kinds[0];
   main.innerHTML = `<section class="mr-hero card">
@@ -42,7 +42,12 @@ PAGES.search = () => boot("search.html", async (main, who) => {
   q.addEventListener("input", () => { clearTimeout(t); t = setTimeout(run, 280); });
   $$("[data-k]").forEach((b) => (b.onclick = () => setKind(b.dataset.k)));
   if (qs.get("q")) q.value = qs.get("q");
-  setKind(kind); q.focus();
+  setKind(kind); if (o.focus !== false) q.focus();
+}
+PAGES.search = () => boot("search.html", async (main, who) => {
+  // لمن يدير مرآة (منسق/مدير البوابة) البحث في الرئيسية فقط؛ البحث المستقل للمطّلع المخوّل
+  if (who.manage) { location.replace("desk.html" + location.search); return; }
+  mountSearch(main, who);
 }, { title: "البحث الموحد", desc: "اختر نوع الملف ثم ابحث بالاسم أو الرقم" });
 
 // ===== الملف الشامل =====
@@ -261,15 +266,12 @@ PAGES.desk = () => boot("desk.html", async (main, who) => {
   // الرئيسية لمن يدير مرآة: البحث السريع، ثم نافذة «نشاط اليوم» ونافذة «الصلاحيات». الاختصارات والإشعارات في القائمة والجرس فلا تتكرر هنا
   const kinds = ["student", "staff"].filter((k) => who["can_" + k]);
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Riyadh" });
-  main.innerHTML = `${kinds.length ? `<section class="card mr-desk-h"><form class="mr-desk-q" id="dq" role="search"><div class="mr-seg" role="radiogroup" aria-label="نوع الملف">${kinds.map((k, i) => `<button type="button" role="radio" data-dk="${k}" aria-checked="${i === 0}">${ico(k === "student" ? "cap" : "user")}${k === "student" ? "متعلم" : "معلم"}</button>`).join("")}</div>
-        <div class="mr-search mr-search-c">${ico("search")}<input type="search" id="dqi" placeholder="ابحث بالاسم أو الرقم" aria-label="بحث سريع"></div><button class="btn" type="submit">بحث</button></form></section>` : ""}
+  main.innerHTML = `<div id="srch"></div>
     <div class="mr-desk-c">
       <section class="card mr-lg"><h3 class="mr-h">${ico("chart")}نشاط اليوم <a class="mr-more" href="log.html?d=${today}">سجلات المشاهدة</a></h3><div id="dact">${loading("جارٍ التحميل…")}</div></section>
       <section class="card mr-lg"><h3 class="mr-h">${ico("key")}الصلاحيات <a class="mr-more" href="perms.html?tab=perms">إدارة الصلاحيات</a></h3><div id="dpm">${loading("جارٍ التحميل…")}</div></section>
     </div>`;
-  let dk = kinds[0];
-  $$("[data-dk]").forEach((b) => (b.onclick = () => { dk = b.dataset.dk; $$("[data-dk]").forEach((x) => x.setAttribute("aria-checked", String(x === b))); }));
-  if ($("#dq")) $("#dq").onsubmit = (e) => { e.preventDefault(); const v = $("#dqi").value.trim(); location.href = `search.html?k=${dk}${v ? "&q=" + encodeURIComponent(v) : ""}`; };
+  if (kinds.length) mountSearch($("#srch"), who, { focus: !!qs.get("q") });
   const kp = (L) => `<div class="mr-kpis mr-pm-k">${L.map(([t, v, c]) => `<div class="mr-kpi ${c}"><b>${v}</b><span>${t}</span></div>`).join("")}</div>`;
   const [act, pm] = await Promise.allSettled([rpc("mr_audit_list", { p_from: today, p_to: today, p_limit: 1 }), rpc("mr_perm_list")]);
   if (act.status === "fulfilled") { const d = act.value, s = (k) => d.by_user.reduce((a, u) => a + (+u[k] || 0), 0);
@@ -280,4 +282,4 @@ PAGES.desk = () => boot("desk.html", async (main, who) => {
     $("#dpm").innerHTML = kp([["منسوباً فعّالاً", L.length, "main"], ["لهم تقرير المتعلم", n((r) => r.leader || r.coord || r.student), "ok"], ["لهم تقرير المعلم", n((r) => r.leader || r.coord || r.staff), "info"], ["منسق مرآة", n((r) => r.coord), "warn"]])
       + `<p class="sub sm">كل منسوب يطّلع على ملفه الشامل من «ملفي» دون صلاحية.</p>`;
   } else $("#dpm").innerHTML = `<p class="err">${esc(mapErr(pm.reason))}</p>`;
-}, { title: "الرئيسية", desc: "نشاط اليوم والصلاحيات، والبحث السريع" });
+}, { title: "الرئيسية", desc: "البحث الموحد عن المتعلمين والمعلمين، ونشاط اليوم والصلاحيات" });
