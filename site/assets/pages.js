@@ -139,6 +139,12 @@ PAGES.profile = () => boot("profile.html", async (main, who) => {
 // ===== الصلاحيات: من يطّلع على الملفات ويستخرج تقاريرها (مدير النواة ومدير المدرسة ومنسق مرآة) =====
 // كل مربع يُحفظ فور تغييره في صلاحيات النواة، ويُسجَّل في سجل عمليات النواة.
 PAGES.perms = () => boot("perms.html", async (main) => {
+  if (qs.get("tab") === "ann") {   // الخطوة 2 في «إدارة البوابة»: إعلانات مرآة (كانت بطاقة أسفل الصلاحيات)
+    if (!window.PK) { main.innerHTML = `<p class="err">تعذر تحميل أداة الإعلانات.</p>`; return; }
+    main.innerHTML = '<section class="pk-card"><div data-pk="p"></div></section>';
+    PK.announcementsAdmin($('[data-pk="p"]', main), { sb, scope: "portal", system: "mirat", onChange: () => { const b = document.getElementById("pk-ann"); if (b) b.remove(); PK.mountAnnouncements({ sb, system: "mirat", page: "all", before: ".pagebar" }); } });
+    return;
+  }
   main.innerHTML = loading("جارٍ تحميل منسوبي المدرسة…");
   const d = await rpc("mr_perm_list"), L = d.staff;
   const COLS = [["student", "تقرير المتعلم", "cap", "البحث عن المتعلمين وفتح ملفاتهم الشاملة واستخراج تقاريرها"],
@@ -252,44 +258,26 @@ PAGES.log = () => boot("log.html", async (main) => {
 // ===== مكتبي الإلكتروني: الصفحة الرئيسية في لوحة التحكم =====
 // اختصارات بحسب الصلاحية، وبحث سريع، وآخر الإشعارات (المصدر نفسه في الجرس)، ونشاط اليوم لمن يدير مرآة.
 PAGES.desk = () => boot("desk.html", async (main, who) => {
+  // الرئيسية لمن يدير مرآة: البحث السريع، ثم نافذة «نشاط اليوم» ونافذة «الصلاحيات». الاختصارات والإشعارات في القائمة والجرس فلا تتكرر هنا
   const kinds = ["student", "staff"].filter((k) => who["can_" + k]);
-  const role = who.rv_teacher ? "معلم" : who.is_admin ? "مدير النواة الرقمية" : who.manage ? "منسق مرآة" : who.can ? "مطّلع مخوّل" : "منسوب";
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Riyadh" });
-  const tile = (href, icon, t, d, extra = "") => `<a class="mr-tile card" href="${esc(href)}"><span class="mr-av" aria-hidden="true">${ico(icon)}</span><span class="mr-tile-t"><b>${t}${extra}</b><small>${d}</small></span>${ico("arrow")}</a>`;
-  main.innerHTML = `<section class="card mr-desk-h">
-      
-      ${kinds.length ? `<form class="mr-desk-q" id="dq" role="search"><div class="mr-seg" role="radiogroup" aria-label="نوع الملف">${kinds.map((k, i) => `<button type="button" role="radio" data-dk="${k}" aria-checked="${i === 0}">${ico(k === "student" ? "cap" : "user")}${k === "student" ? "متعلم" : "معلم"}</button>`).join("")}</div>
-        <div class="mr-search mr-search-c">${ico("search")}<input type="search" id="dqi" placeholder="ابحث بالاسم أو الرقم" aria-label="بحث سريع"></div><button class="btn" type="submit">بحث</button></form>` : ""}
-    </section>
-    <div class="mr-tiles">
-      ${who.rv_coord ? "" : tile(myFile(who), "user", "ملفي الشامل", "سجلك كاملاً، واستخراج تقريرك")}
-      ${who.can ? tile("search.html", "search", "البحث الموحد", kinds.length > 1 ? "ملفات المتعلمين والمعلمين" : kinds[0] === "student" ? "ملفات المتعلمين" : "ملفات المعلمين") : ""}
-      ${tile("inbox.html", "bell", "الإشعارات", "ما يخصك من مستجدات", '<span class="badge warn" id="dnb" hidden></span>')}
-      ${who.manage ? tile("perms.html", "key", "الصلاحيات", "من يطّلع ويستخرج التقارير") + tile("log.html", "eye", "سجلات المشاهدة", "من اطّلع على أي ملف ومتى") : ""}
-    </div>
+  main.innerHTML = `${kinds.length ? `<section class="card mr-desk-h"><form class="mr-desk-q" id="dq" role="search"><div class="mr-seg" role="radiogroup" aria-label="نوع الملف">${kinds.map((k, i) => `<button type="button" role="radio" data-dk="${k}" aria-checked="${i === 0}">${ico(k === "student" ? "cap" : "user")}${k === "student" ? "متعلم" : "معلم"}</button>`).join("")}</div>
+        <div class="mr-search mr-search-c">${ico("search")}<input type="search" id="dqi" placeholder="ابحث بالاسم أو الرقم" aria-label="بحث سريع"></div><button class="btn" type="submit">بحث</button></form></section>` : ""}
     <div class="mr-desk-c">
-      <section class="card mr-lg"><h3 class="mr-h">${ico("bell")}آخر الإشعارات <a class="mr-more" href="inbox.html">مشاهدة الكل</a></h3><div id="dn">${loading("جارٍ التحميل…")}</div></section>
-      ${who.manage ? `<section class="card mr-lg"><h3 class="mr-h">${ico("chart")}نشاط اليوم <a class="mr-more" href="log.html?d=${today}">سجلات المشاهدة</a></h3><div id="dact">${loading("جارٍ التحميل…")}</div></section>` : ""}
+      <section class="card mr-lg"><h3 class="mr-h">${ico("chart")}نشاط اليوم <a class="mr-more" href="log.html?d=${today}">سجلات المشاهدة</a></h3><div id="dact">${loading("جارٍ التحميل…")}</div></section>
+      <section class="card mr-lg"><h3 class="mr-h">${ico("key")}الصلاحيات <a class="mr-more" href="perms.html?tab=perms">إدارة الصلاحيات</a></h3><div id="dpm">${loading("جارٍ التحميل…")}</div></section>
     </div>`;
-  // البحث السريع ينتقل إلى صفحة البحث بالنوع والكلمة
   let dk = kinds[0];
   $$("[data-dk]").forEach((b) => (b.onclick = () => { dk = b.dataset.dk; $$("[data-dk]").forEach((x) => x.setAttribute("aria-checked", String(x === b))); }));
   if ($("#dq")) $("#dq").onsubmit = (e) => { e.preventDefault(); const v = $("#dqi").value.trim(); location.href = `search.html?k=${dk}${v ? "&q=" + encodeURIComponent(v) : ""}`; };
-  // آخر الإشعارات من مصدر الجرس نفسه، وتتحدّث معه
-  const drawN = () => {
-    const box = $("#dn"); if (!box) { UB.pages = UB.pages.filter((f) => f !== drawN); return; }
-    if (!UB.loaded) return; const un = UB.N.filter(ubUnread).length, nb = $("#dnb");
-    if (nb) { nb.hidden = !un; nb.textContent = un + " غير مقروء"; }
-    box.innerHTML = UB.N.length ? `<div class="ubg mr-dn"><div class="ubg-c">${UB.N.slice(0, 5).map((x, i) => ubItem(x, i, "ubg-it")).join("")}</div></div>` : `<p class="sub">لا إشعارات حالياً.</p>`;
-  };
-  UB.pages.push(drawN); drawN();
-  if (who.manage) {
-    try {
-      const d = await rpc("mr_audit_list", { p_from: today, p_to: today, p_limit: 1 });
-      const s = (k) => d.by_user.reduce((a, u) => a + (+u[k] || 0), 0);
-      $("#dact").innerHTML = `<div class="mr-kpis mr-pm-k">${[["عملية اليوم", d.total, "main"], ["اطلاع على ملف", s("views"), "info"], ["تقرير مصدّر", s("exports"), "ok"], ["رفض وصول", s("denied"), "bad"]]
-        .map(([t, v, c]) => `<div class="mr-kpi ${c}"><b>${v}</b><span>${t}</span></div>`).join("")}</div>
-        ${d.by_user.length ? `<ul class="mr-dl">${d.by_user.slice(0, 5).map((u) => `<li><b>${esc(u.name)}</b><span>${+u.files === 1 ? "ملف واحد" : +u.files === 2 ? "ملفان" : +u.files <= 10 ? u.files + " ملفات" : u.files + " ملفاً"} · آخر نشاط ${esc(String(u.last || "").slice(11, 16))}</span></li>`).join("")}</ul>` : `<p class="sub">لا نشاط اليوم حتى الآن.</p>`}`;
-    } catch (e) { $("#dact").innerHTML = `<p class="err">${esc(mapErr(e))}</p>`; }
-  }
-}, { title: "مكتبي الإلكتروني", desc: "اختصاراتك وآخر إشعاراتك ونشاط اليوم" });
+  const kp = (L) => `<div class="mr-kpis mr-pm-k">${L.map(([t, v, c]) => `<div class="mr-kpi ${c}"><b>${v}</b><span>${t}</span></div>`).join("")}</div>`;
+  const [act, pm] = await Promise.allSettled([rpc("mr_audit_list", { p_from: today, p_to: today, p_limit: 1 }), rpc("mr_perm_list")]);
+  if (act.status === "fulfilled") { const d = act.value, s = (k) => d.by_user.reduce((a, u) => a + (+u[k] || 0), 0);
+    $("#dact").innerHTML = kp([["عملية اليوم", d.total, "main"], ["اطلاع على ملف", s("views"), "info"], ["تقرير مصدّر", s("exports"), "ok"], ["رفض وصول", s("denied"), "bad"]])
+      + (d.by_user.length ? `<ul class="mr-dl">${d.by_user.slice(0, 5).map((u) => `<li><b>${esc(u.name)}</b><span>${+u.files === 1 ? "ملف واحد" : +u.files === 2 ? "ملفان" : +u.files <= 10 ? u.files + " ملفات" : u.files + " ملفاً"}</span></li>`).join("")}</ul>` : `<p class="sub">لا نشاط اليوم.</p>`);
+  } else $("#dact").innerHTML = `<p class="err">${esc(mapErr(act.reason))}</p>`;
+  if (pm.status === "fulfilled") { const L = pm.value.staff || [], n = (f) => L.filter(f).length;
+    $("#dpm").innerHTML = kp([["منسوباً فعّالاً", L.length, "main"], ["لهم تقرير المتعلم", n((r) => r.leader || r.coord || r.student), "ok"], ["لهم تقرير المعلم", n((r) => r.leader || r.coord || r.staff), "info"], ["منسق مرآة", n((r) => r.coord), "warn"]])
+      + `<p class="sub sm">كل منسوب يطّلع على ملفه الشامل من «ملفي» دون صلاحية.</p>`;
+  } else $("#dpm").innerHTML = `<p class="err">${esc(mapErr(pm.reason))}</p>`;
+}, { title: "الرئيسية", desc: "نشاط اليوم والصلاحيات، والبحث السريع" });

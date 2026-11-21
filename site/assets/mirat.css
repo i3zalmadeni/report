@@ -217,3 +217,18 @@ nav.mr-jump{flex-direction:row;flex-wrap:nowrap;justify-content:flex-start;flex:
 .mr-tile-t b .badge{margin-inline-start:6px;font-size:.72rem;vertical-align:middle}
 .mr-desk-c .mr-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
 ul.mr-dl{display:block;columns:auto;column-count:auto}ul.mr-dl li{width:100%;break-inside:avoid}
+
+/* ===== نمط لوحة التحكم الموحد: أيقونة القسم في الشريط الأبيض، والشريط الفرعي، ورأس التبويب الفرعي ===== */
+.pb-t h1{display:flex;align-items:center;gap:10px}
+.pb-ic{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--brandsoft);flex:none}
+.pb-ic .ico,.pb-ic svg{width:20px;height:20px;stroke:var(--brand2);margin:0}
+.sbar{background:var(--surface);border-bottom:1px solid var(--line)}
+.sbar .subnav{border-top:0;justify-content:flex-start;gap:2px}
+.sbar .subnav a{padding:11px 10px;gap:6px}
+.shd{padding-top:24px}
+.shd h2{margin:0;font-size:1.2rem;font-weight:800}
+.shd p{margin:4px 0 14px}
+main.solo{padding-top:24px}
+@media print{.sbar,.shd{display:none!important}}
+/* النمط الداكن: الترويسة بخلفية فاتحة ثابتة في core.css (كما أُصلح في انضباطي) */
+@media (prefers-color-scheme:dark){html:not([data-theme="light"]) header{background:linear-gradient(to left,#1b2a2c 0%,#152833 22%,#11242f 55%,#0f2836 100%)}}

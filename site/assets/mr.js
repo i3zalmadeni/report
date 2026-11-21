@@ -120,12 +120,22 @@ const kindLabel = (k) => (k === "student" ? "متعلم" : "معلم");
 // ===== الهيكل: ترويسة النواة، والتحقق من الجلسة والصلاحية قبل أي عرض =====
 // [الرابط، الاسم، الأيقونة، التلميح، شرط الظهور]. «ملفي» لكل منسوب: يطّلع على ملفه الشامل وتقريره دون صلاحية إضافية
 const myFile = (w) => "profile.html?k=staff&id=" + encodeURIComponent(w.staff_id);
+// نمط لوحة التحكم الموحد: أقسام في الشريط الداكن (SECTIONS) وصفحاتها في الشريط الفرعي (NAV)
+// [المفتاح، الاسم، الأيقونة، الوصف]
+const SECTIONS = [
+  ["home", "الرئيسية", "grid", "نظرة شاملة على الاطلاع والصلاحيات، مع سجلات المشاهدة"],
+  ["search", "البحث", "search", "بحث موحد عن متعلم أو معلم، وفتح ملفه الشامل وتقريره"],
+  ["mine", "ملفي", "user", "ملفي الشامل وسجلي كاملاً، واستخراج تقريري"],
+  ["admin", "إدارة البوابة", "gear", "إعدادات تُضبط في بداية العام بخطوات مرقمة، وتبقى متاحة للتعديل"],
+];
+// [الرابط، الاسم، الأيقونة، الوصف، شرط الظهور، القسم]
 const NAV = [
-  [() => "desk.html", "مكتبي الإلكتروني", "home", "اختصاراتك وآخر إشعاراتك ونشاط اليوم"],
-  [() => "search.html", "البحث", "search", "بحث موحد عن متعلم أو معلم", (w) => w.can],
-  [myFile, "ملفي", "user", "ملفي الشامل وسجلي كاملاً"],
-  [() => "log.html", "سجلات المشاهدة", "eye", "من اطّلع على أي ملف ومتى", (w) => w.manage],
-  [() => "perms.html", "الصلاحيات", "key", "من يطّلع على الملفات ويستخرج التقارير", (w) => w.manage],   // الأخيرة: لا صفحة «إدارة البوابة» في مرآة
+  [() => "desk.html", "نظرة عامة", "grid", "نشاط اليوم والصلاحيات، والبحث السريع", (w) => w.manage, "home"],
+  [() => "log.html", "سجلات المشاهدة", "eye", "من اطّلع على أي ملف، ومتى، ومن صدّر التقارير", (w) => w.manage, "home"],
+  [() => "search.html", "البحث", "search", "اختر نوع الملف ثم ابحث بالاسم أو الرقم", (w) => w.can, "search"],
+  [myFile, "ملفي الشامل", "user", "ملفي الشامل وسجلي كاملاً، واستخراج تقريري", (w) => !w.rv_coord, "mine"],
+  [() => "perms.html?tab=perms", "الصلاحيات", "key", "من يطّلع على الملفات الشاملة ويستخرج تقارير المتعلمين والمعلمين", (w) => w.manage, "admin"],
+  [() => "perms.html?tab=ann", "الإعلانات", "bell", "إعلانات البوابة التي تظهر أعلى لوحة التحكم", (w) => w.manage, "admin"],
 ];
 // المنسوب بلا صلاحية اطلاع: ملفه الشخصي وتقريره فقط
 const isOwnFile = (who) => qs0.get("k") === "staff" && qs0.get("id") === who.staff_id;
@@ -150,17 +160,32 @@ async function boot(page, render, o = {}) {
   if (o.bare) { await render(shell, who); return; }
   if (o.manage && !who.manage) { fail("هذه الصفحة لمدير النواة الرقمية ومدير المدرسة ومنسق مرآة فقط.", true); return; }
   const role = who.rv_teacher ? "معلم" : who.is_admin ? "مدير النواة الرقمية" : who.manage ? "منسق مرآة" : who.can ? "مطّلع مخوّل" : "منسوب";
-  const here = page + location.search;
+  // الرئيسية لمن يدير مرآة فقط؛ غيره يبدأ من البحث (المطّلع المخوّل) أو من ملفه (المعلم والمنسوب)
+  if (page === "desk.html" && !who.manage) { location.replace(who.can ? "search.html" : myFile(who)); return; }
+  const vis = NAV.filter((x) => !x[4] || x[4](who)).map((x) => [x[0](who), ...x.slice(1)]);
+  const tab = qs0.get("tab") === "ann" ? "ann" : "perms";
+  const own = page === "profile.html" && isOwnFile(who);
+  const cur = page === "perms.html" ? vis.find((n) => n[0] === "perms.html?tab=" + tab)
+    : own ? vis.find((n) => n[5] === "mine") : page === "profile.html" ? vis.find((n) => n[5] === "search") : vis.find((n) => n[0] === page);
+  const secKey = cur ? cur[5] : null, sec = SECTIONS.find((x) => x[0] === secKey);
+  const secItems = (k) => vis.filter((n) => n[5] === k);
+  const secName = (k) => (k === "mine" ? (who.can ? "ملفي" : "مكتبي") : secItems(k).length === 1 && k !== "home" ? secItems(k)[0][1] : SECTIONS.find((x) => x[0] === k)[1]);
+  const subs = secKey ? secItems(secKey) : [], hasSub = subs.length > 1;
+  const pbTitle = sec ? secName(secKey) : o.title || "الملف الشامل";
+  const pbDesc = hasSub ? sec[3] : page === "profile.html" && !own ? o.desc || "" : cur ? cur[3] : o.desc || "";
+  const pbIcon = sec ? (secKey === "mine" && !who.can ? "home" : sec[2]) : "bell";
   shell.innerHTML =
     `<header class="dash"><div class="wrap top">${brandHTML("index.html")}<div class="idl"><a class="sitelink" href="index.html">الموقع الإلكتروني</a><span class="vdiv"></span>${coreBlock()}${headMoe}</div></div>
      <div class="strip" aria-hidden="true"></div>
-     <div class="dnav"><div class="wrap dn"><button type="button" class="dmb" id="dmb" aria-expanded="false" aria-controls="dnavIn">${ico("menu")}<span class="dmb-t">القائمة</span><svg class="dmb-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button><div class="dnav-in" id="dnavIn">${NAV.filter((x) => (!x[4] || x[4](who)) && !(who.rv_coord && x === NAV[2])).map(([hf, n, e, t]) => { const h = hf(who), on = h === page || (h.includes("?") && here === h); return `<a href="${esc(h)}" title="${esc(t)}" class="${on ? "on" : ""}" ${on ? 'aria-current="page"' : ""}>${ico(e)}${n}</a>`; }).join("")}</div>
+     <div class="dnav"><div class="wrap dn"><button type="button" class="dmb" id="dmb" aria-expanded="false" aria-controls="dnavIn">${ico("menu")}<span class="dmb-t">القائمة</span><svg class="dmb-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button><div class="dnav-in" id="dnavIn">${SECTIONS.filter(([k]) => secItems(k).length).map(([k, , i, d]) => { const it = secItems(k), on = k === secKey; return `<a href="${esc(it[0][0])}" data-sec="${k}" title="${esc(it.length > 1 ? d : it[0][3])}" class="${on ? "on" : ""}" ${on ? 'aria-current="page"' : ""}>${ico(k === "mine" && !who.can ? "home" : i)}${esc(secName(k))}</a>`; }).join("")}</div>
      <div class="dwho">${ubBarHTML(who.name, myFile(who))}</div></div></div></header>
-     <div class="pagebar"><div class="wrap pb"><div class="pb-t"><small>${esc(role)}</small><h1>${esc(o.title || "الملف الشامل")}</h1></div><p class="pb-d">${esc(o.desc || "")}</p>
+     <div class="pagebar"><div class="wrap pb"><div class="pb-t"><small>${esc(role)}</small><h1><span class="pb-ic">${ico(pbIcon)}</span><span>${esc(pbTitle)}</span></h1></div><p class="pb-d">${esc(pbDesc)}</p>
      <div class="pb-u"><span>${esc(fmtHijri(todayISO()))}</span></div></div></div>
-     <main class="wrap" id="main"></main>${footerHTML}`;
+     ${hasSub ? `<div class="sbar" role="navigation" aria-label="${esc(secName(secKey))}"><div class="wrap"><div class="subnav">${subs.map((n, i) => { const on = n === cur; return `<a href="${esc(n[0])}" title="${esc(n[3])}" class="${on ? "on" : ""}" ${on ? 'aria-current="page"' : ""}>${ico(n[2])}${secKey === "admin" ? i + 1 + ". " : ""}${esc(n[1])}</a>`; }).join("")}</div></div></div>
+     <div class="wrap shd"><h2>${esc(cur[1])}</h2><p class="sub">${esc(cur[3])}</p></div>` : ""}
+     <main class="wrap${hasSub ? "" : " solo"}" id="main"></main>${footerHTML}`;
+  { const a = document.querySelector(".sbar a.on"); if (a) a.scrollIntoView({ block: "nearest", inline: "center" }); }
   bindNav();
-  if (window.PK && page === "perms.html") PK.mountAdminSection({ sb, system: "mirat", central: false, after: "#main" });
   // قائمة الجوال: زر «القائمة» يفتح لائحة عمودية بكل التبويبات (على الشاشات العريضة يبقى الشريط الأفقي كما هو)
   (() => { const d = document.querySelector(".dnav"), b = document.getElementById("dmb"); if (!d || !b) return;
     const set = (o) => { d.classList.toggle("open", o); b.setAttribute("aria-expanded", o); };
@@ -171,9 +196,9 @@ async function boot(page, render, o = {}) {
     matchMedia("(min-width:761px)").addEventListener("change", (m) => { if (m.matches) set(false); });
   })();
   if (window.PK) { PK.fitNav(document.querySelector(".dnav-in"));
-    PK.mountAnnouncements({ sb, system: "mirat", page: page === "desk.html" ? "home" : "all", before: ".pagebar" });
+    PK.mountAnnouncements({ sb, system: "mirat", page: page === "desk.html" || (own && !who.can) ? "home" : "all", before: ".pagebar" });
     if (page === "desk.html") PK.welcome("#main", { mode: "before", sb, name: who.name, role: role }); }
-  document.title = (o.title || "الملف الشامل") + " – مرآة";
+  document.title = (hasSub ? cur[1] : pbTitle) + " – مرآة";
   $("#out").onclick = (e) => { e.preventDefault(); doLogout(); };
   // الإشعارات: تعديلات صلاحياتك في مرآة، ولمن يدير مرآة آخر العمليات من غيره، و«مشاهدة الكل» سجلات المشاهدة
   if (window.RoleSwitch) RoleSwitch.mount({ sys: "mirat", uid: session.user.id, can: rvCan, view: rvView, home: { coord: "desk.html", teacher: "desk.html" }, teacherDesc: "ملفي الشامل وتقريري", coordDesc: "البحث والصلاحيات والسجلات" });
