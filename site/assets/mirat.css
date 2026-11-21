@@ -232,3 +232,11 @@ main.solo{padding-top:24px}
 @media print{.sbar,.shd{display:none!important}}
 /* النمط الداكن: الترويسة بخلفية فاتحة ثابتة في core.css (كما أُصلح في انضباطي) */
 @media (prefers-color-scheme:dark){html:not([data-theme="light"]) header{background:linear-gradient(to left,#1b2a2c 0%,#152833 22%,#11242f 55%,#0f2836 100%)}}
+/* ===== النمط الداكن (مولَّد بـ tools/dark-gen.py — لا تعدّل يدوياً، أعد التوليد) ===== */
+@media (prefers-color-scheme:dark){
+:where(:root:not([data-theme=light])) .mr-ck input:checked+span::after{border:solid var(--line)}
+:where(:root:not([data-theme=light])) .dav{border:2px solid var(--line)}
+:where(:root:not([data-theme=light])) .mr-lnk{border:0}
+:where(:root:not([data-theme=light])) .sbar{border-bottom:1px solid var(--line)}
+}
+/* ===== نهاية النمط الداكن المولَّد ===== */

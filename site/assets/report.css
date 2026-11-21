@@ -174,3 +174,13 @@ bdi,.nw{unicode-bidi:isolate;white-space:nowrap}
   .rp-uttl{padding:4mm 4mm 5mm}.rp-uttl h1{font-size:16pt}.rp-uttl .e{font-size:10.5pt;padding:1.4mm 5mm}
   .rp-uft .uf{flex-wrap:wrap;justify-content:center}.uf-m{order:-1;flex:1 1 100%}
 }
+
+/* النمط الداكن للشاشة فقط: شريط الأدوات ومنتقي الأقسام. ورقة A4 (.sheet) تبقى بيضاء لأنها صورة المطبوع، ولا يمسّ هذا الطباعة. */
+@media screen and (prefers-color-scheme:dark){
+  html,body{background:#0b1a24}
+  .rp-bar{background:#11242f;border-bottom-color:#1f3a48;box-shadow:0 4px 14px rgba(0,0,0,.4);color:#e3f0f5}
+  .rb.sec{background:#143a42;color:#62d3d6}
+  .rp-vw{background:#0f2230}.rp-vw button{color:#62d3d6}.rp-vw button.on{background:#143a42;color:#e3f0f5;box-shadow:none}
+  .rp-st,.rp-tip,.pk-n,.pk-note{color:#8aa1b0}.rp-st.bad{color:#f0909a}
+  .rp-pick{background:#0f2230;border-color:#1f3a48;color:#e3f0f5}.pk-parts{background:#11242f;border-color:#1f3a48}
+}
